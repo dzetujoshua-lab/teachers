@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack --yes)",
+      "Bash(npm run *)",
+      "PowerShell(Get-Process -Name node -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "Bash(xargs cat)",
+      "Bash(node -e \"const p=require\\('./node_modules/cmdk/dist/index.js'\\); console.log\\('cmdk exports:', Object.keys\\(p\\).join\\(', '\\)\\)\")",
+      "Bash(node -e ' *)"
+    ]
+  }
+}

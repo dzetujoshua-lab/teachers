@@ -1,0 +1,37 @@
+-- Legacy Supabase schema retained for reference only during migration.
+-- The app now uses Firebase Auth and Cloud Firestore.
+-- Below is the equivalent Firestore collection/document structure.
+
+-- Firestore collections (replace these tables):
+--
+-- profiles/{uid}
+--   email: string
+--   role: "super_admin" | "campus_admin" | "facilitator" | "kitchen_manager" | "security_officer" | "student"
+--   department?: string
+--   avatarColor?: string
+--   forcePasswordReset?: boolean
+--   updatedAt?: string
+--
+-- attendance_sessions/{sessionId}
+--   course, facilitator, facilitatorDept, building, room, method, startedAt, status, present, total, flagged
+--
+-- attendance_events/{eventId}
+--   student, studentId, course, building, status, method, time, suspicious?, reason?
+--
+-- menu_items/{itemId}
+--   meal, name, preference, estimated, prepared, served
+--
+-- audit_logs/{logId}
+--   actor, action, target, ip, device, time, severity
+--
+-- notifications/{notificationId}
+--   title, body, type, time, read
+--
+-- campuses/{campusId}
+--   name, location, buildings, students, status
+--
+-- buildings/{buildingId}
+--   name, campusId, capacity, occupancy, lat, lng
+--
+-- departments/{departmentId}
+--   name, faculty, students, attendanceRate

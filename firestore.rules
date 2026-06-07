@@ -1,0 +1,69 @@
+// Firestore Security Rules for attendance drafts
+// Reference: https://firebase.google.com/docs/firestore/security/start
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to access their own data
+    match /attendanceDrafts/{draftId} {
+      // Facilitators can read drafts assigned to them
+      allow read: if request.auth != null && 
+                     resource.data.facilitatorId == request.auth.uid;
+      
+      // Campus admins can read all drafts in their institution
+      allow read: if request.auth != null && 
+                     request.auth.token.role == 'campus_admin' &&
+                     resource.data.institutionId == request.auth.token.institutionId;
+      
+      // Campus admins can create drafts
+      allow create: if request.auth != null && 
+                       request.auth.token.role == 'campus_admin' &&
+                       request.resource.data.facilitatorId != null &&
+                       request.resource.data.members is list &&
+                       request.resource.data.members.size() > 0 &&
+                       request.resource.data.status == 'draft' &&
+                       request.resource.data.createdBy == request.auth.uid;
+      
+      // Facilitators can update (mark attendance, submit)
+      allow update: if request.auth != null && 
+                       resource.data.facilitatorId == request.auth.uid &&
+                       (request.resource.data.status == 'draft' || 
+                        request.resource.data.status == 'submitted');
+      
+      // Campus admins can update (reassign, change status to confirmed)
+      allow update: if request.auth != null && 
+                       request.auth.token.role == 'campus_admin' &&
+                       resource.data.institutionId == request.auth.token.institutionId;
+      
+      // Campus admins can delete their own drafts
+      allow delete: if request.auth != null && 
+                       request.auth.token.role == 'campus_admin' &&
+                       resource.data.createdBy == request.auth.uid;
+    }
+
+    // List drafts with proper filtering
+    match /attendanceDrafts {
+      allow list: if request.auth != null;
+    }
+
+    // Protect profiles collection
+    match /profiles/{userId} {
+      allow read: if request.auth != null && 
+                     (request.auth.uid == userId || 
+                      request.auth.token.role == 'super_admin');
+      allow write: if request.auth.uid == userId;
+    }
+
+    // Protect roleUsers collection
+    match /roleUsers/{role}/users/{userId} {
+      allow read: if request.auth != null && 
+                     (request.auth.uid == userId || 
+                      request.auth.token.role == 'super_admin');
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
