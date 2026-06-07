@@ -1,10 +1,11 @@
-const CACHE_NAME = 'campusvibe-v1'
+const CACHE_NAME = 'Campus-Attendance-v1'
 
 // Files to cache for offline use
 const STATIC_ASSETS = [
   '/',
-  '/index.html',
   '/manifest.json',
+  '/favicon.ico',
+  '/apple-touch-icon.png',
 ]
 
 // Install — cache static assets
@@ -61,7 +62,7 @@ self.addEventListener('fetch', (event) => {
         return caches.match(event.request).then((cached) => {
           if (cached) return cached
           if (event.request.mode === 'navigate') {
-            return caches.match('/index.html')
+            return caches.match('/')
           }
         })
       })
