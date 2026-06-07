@@ -22,10 +22,10 @@ export function NotificationDetailsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <span>Notification Details</span>
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            <span className="text-base">Notification Details</span>
             {notification?.read === false && (
-              <Badge variant="wine">Unread</Badge>
+              <Badge variant="wine" className="font-semibold">Unread</Badge>
             )}
           </DialogTitle>
         </DialogHeader>
@@ -81,10 +81,8 @@ export function NotificationDetailsModal({
               )}
 
               <div className="pt-2">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Payload
-                </div>
-                <pre className="mt-1 max-h-72 overflow-auto rounded-md border bg-muted/30 p-3 text-xs">
+                <div className="text-xs font-medium text-muted-foreground">Payload</div>
+                <pre className="mt-2 max-h-80 overflow-auto rounded-md border bg-muted/30 p-3 text-xs leading-relaxed">
                   {JSON.stringify(notification, null, 2)}
                 </pre>
               </div>

@@ -12,7 +12,6 @@ import type { Role, Person } from "@/lib/types";
 import { relativeTime } from "@/lib/utils";
 import { NotificationDetailsModal } from "@/components/shell/notification-details-modal";
 
-
 type DisplayUser = Person & {
   platformUserId?: string;
   uid?: string;
@@ -21,24 +20,21 @@ type DisplayUser = Person & {
 export function Topbar({ role }: { role: Role }) {
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState<
-    Array<
-      {
-        id: string;
-        title: string;
-        body: string;
-        time: string;
-        read: boolean;
-      } & Record<string, any>
-    >
+    Array<{
+      id: string;
+      title: string;
+      body: string;
+      time: string;
+      read: boolean;
+    } & Record<string, any>>
   >([]);
+
   const unread = notifications.filter((n) => !n.read).length;
 
-  const [activeNotificationId, setActiveNotificationId] = React.useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
   const [notificationDetails, setNotificationDetails] = React.useState<any | null>(null);
   const [detailsLoading, setDetailsLoading] = React.useState(false);
   const [detailsError, setDetailsError] = React.useState<string | null>(null);
-
 
   const [currentUser, setCurrentUser] = React.useState<DisplayUser | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -63,20 +59,19 @@ export function Topbar({ role }: { role: Role }) {
   React.useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const res = await fetch(
-          `/api/admin/firestore?collection=notifications`
-        );
+        const res = await fetch(`/api/admin/firestore?collection=notifications`);
         const data = await res.json();
 
         const rows = (data?.rows ?? []).filter((n: any) => {
           const audienceRole = String(n?.audienceRole ?? "").trim();
           const audienceId = String(n?.facilitatorId ?? n?.audienceId ?? "").trim();
           // Match by role OR by specific facilitator ID (for facilitator-targeted notifications)
-          return audienceRole === String(role).trim() ||
-                 (role === "facilitator" && audienceId && audienceId === currentUser?.id);
+          return (
+            audienceRole === String(role).trim() ||
+            (role === "facilitator" && audienceId && audienceId === currentUser?.id)
+          );
         });
 
-        // sort newest first
         rows.sort((a: any, b: any) => {
           const at = String(a?.time ?? a?.createdAt ?? "");
           const bt = String(b?.time ?? b?.createdAt ?? "");
@@ -110,15 +105,14 @@ export function Topbar({ role }: { role: Role }) {
       email: "user@campus.edu",
       role,
       avatarColor: "#7C3AED",
-    } satisfies DisplayUser);
+    }) satisfies DisplayUser;
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-xl lg:px-6">
       <button
-        onClick={() =>
-          document.dispatchEvent(new CustomEvent(OPEN_PALETTE_EVENT))
-        }
+        onClick={() => document.dispatchEvent(new CustomEvent(OPEN_PALETTE_EVENT))}
         className="flex h-9 flex-1 max-w-md items-center gap-2 rounded-lg border border-border bg-card/50 px-3 text-sm text-muted-foreground transition-colors hover:bg-accent/50"
+        aria-label="Search"
       >
         <Search className="size-4" />
         <span className="flex-1 text-left">Search or jump to...</span>
@@ -126,7 +120,6 @@ export function Topbar({ role }: { role: Role }) {
           Ctrl K
         </kbd>
       </button>
-
 
       <div className="flex flex-1 items-center justify-end gap-1.5">
         <div className="hidden min-w-0 text-right sm:block">
@@ -145,6 +138,7 @@ export function Topbar({ role }: { role: Role }) {
             onClick={() => setNotifOpen((o) => !o)}
             className="relative grid h-10 w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             aria-label="Notifications"
+            aria-expanded={notifOpen}
           >
             <Bell className="size-[18px]" />
             {unread > 0 && (
@@ -154,76 +148,82 @@ export function Topbar({ role }: { role: Role }) {
 
           {notifOpen && (
             <>
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setNotifOpen(false)}
-              />
+              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+
               <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
                 <div className="flex items-center justify-between border-b border-border px-4 py-3">
                   <p className="text-sm font-semibold">Notifications</p>
                   <Badge variant="wine">{unread} new</Badge>
                 </div>
+
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length === 0 ? (
-                    <div className="px-4 py-3 text-xs text-muted-foreground">
-                      No notifications.
-                    </div>
+                    <div className="px-4 py-4 text-xs text-muted-foreground">No notifications.</div>
                   ) : (
                     notifications.map((n) => (
                       <button
                         key={n.id}
                         type="button"
-onClick={async () => {
-                           setNotifOpen(false);
-                           setDetailsOpen(true);
-                           setDetailsLoading(true);
-                           setDetailsError(null);
-                           setNotificationDetails(null);
+                        onClick={async () => {
+                          setNotifOpen(false);
+                          setDetailsOpen(true);
+                          setDetailsLoading(true);
+                          setDetailsError(null);
+                          setNotificationDetails(null);
 
-                           // Mark notification as read optimistically and on server
-                           if (!n.read) {
-                             setNotifications(prev => prev.map(item =>
-                               item.id === n.id ? { ...item, read: true } : item
-                             ));
-                             try {
-                               await fetch(`/api/admin/notifications/${n.id}`, {
-                                 method: 'PATCH',
-                                 headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({ read: true }),
-                               });
-                             } catch (e) {
-                               console.error('Failed to mark notification read:', e);
-                             }
-                           }
+                          if (!n.read) {
+                            setNotifications((prev) =>
+                              prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
+                            );
 
-                           try {
-                             const res = await fetch(
-                               `/api/admin/notifications/${n.id}`
-                             );
-                             if (!res.ok) {
-                               throw new Error(
-                                 `Failed to load notification (${res.status})`
-                               );
-                             }
-                             const data = await res.json();
-                             setNotificationDetails(data?.notification ?? null);
-                           } catch (e: any) {
-                             setDetailsError(
-                               e?.message || "Failed to load details"
-                             );
-                           } finally {
-                             setDetailsLoading(false);
-                           }
-                         }}
-                        className="block w-full text-left border-b border-border/60 px-4 py-3 text-sm last:border-0 hover:bg-accent/50"
+                            try {
+                              await fetch(`/api/admin/notifications/${n.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ read: true }),
+                              });
+                            } catch (e) {
+                              console.error("Failed to mark notification read:", e);
+                            }
+                          }
+
+                          try {
+                            const res = await fetch(`/api/admin/notifications/${n.id}`);
+                            if (!res.ok) {
+                              throw new Error(`Failed to load notification (${res.status})`);
+                            }
+                            const data = await res.json();
+                            setNotificationDetails(data?.notification ?? null);
+                          } catch (e: any) {
+                            setDetailsError(e?.message || "Failed to load details");
+                          } finally {
+                            setDetailsLoading(false);
+                          }
+                        }}
+                        className={
+                          "group relative flex w-full items-start gap-3 border-b border-border/60 px-4 py-3 text-left text-sm last:border-0 transition-colors hover:bg-accent/50" +
+                          (!n.read
+                            ? " before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-wine-500"
+                            : "")
+                        }
                       >
-                        <p className="font-medium">{n.title}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {n.body}
-                        </p>
-                        <p className="mt-1 text-[10px] text-muted-foreground">
-                          {relativeTime(n.time)}
-                        </p>
+                        <div className="mt-1">
+                          {!n.read && (
+                            <span className="inline-block h-2 w-2 rounded-full bg-wine-500 ring-2 ring-background" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{n.title}</p>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground">{relativeTime(n.time)}</p>
+                        </div>
+
+                        <div className="mt-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-card/40 text-[10px] text-muted-foreground">
+                            View
+                          </span>
+                        </div>
                       </button>
                     ))
                   )}
@@ -239,6 +239,7 @@ onClick={async () => {
           <Avatar name={userToDisplay.name} color={userToDisplay.avatarColor} size="md" />
         </Link>
       </div>
+
       <NotificationDetailsModal
         open={detailsOpen}
         onOpenChange={(o) => {
@@ -255,5 +256,4 @@ onClick={async () => {
     </header>
   );
 }
-
 

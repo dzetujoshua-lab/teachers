@@ -1,10 +1,11 @@
 # TODO
 
-## Firebase session cookie creation failing (ERR_OSSL_UNSUPPORTED)
-- [ ] Confirm Node version and firebase-admin version compatibility
-- [ ] Fix dependency mismatch (firebase-admin version vs package.json)
-- [ ] Retry after cleaning node_modules + reinstall
-- [ ] If still failing, try NODE_OPTIONS=--openssl-legacy-provider workaround
-- [ ] Ensure FIREBASE_ADMIN_PRIVATE_KEY is correctly formatted in .env.local
-- [ ] Retest POST /api/auth/session
+## Admin notification appearance (UI polish)
+
+- [x] Inspect notification UI components (dropdown + modal)
+- [x] Update `src/components/shell/topbar.tsx` dropdown styling (spacing, truncation, unread emphasis)
+- [x] Update `src/components/shell/notification-details-modal.tsx` modal hierarchy + payload readability
+- [ ] Sanity check TypeScript/TSX compile (separate existing typecheck failure noted in build output)
+- [ ] Run dev/build to verify visual behavior
+
 
