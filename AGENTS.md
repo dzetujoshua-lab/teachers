@@ -1,3 +1,8 @@
 # Commands
 
-- npm run dev (with OpenSSL legacy provider): `$env:NODE_OPTIONS="--openssl-legacy-provider"; npm run dev`
+## Development
+
+Run dev server with OpenSSL legacy provider (required for Node.js 17+):
+```powershell
+$env:NODE_OPTIONS="--openssl-legacy-provider"; npm run dev
+```

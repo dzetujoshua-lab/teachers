@@ -7,22 +7,6 @@ import {
 } from "./config";
 import type { Person, Role } from "@/lib/types";
 
-// Node.js 17+ uses OpenSSL 3.0 which requires legacy provider for older JWT algorithms
-// This must run before any firebase-admin import
-if (typeof process !== "undefined" && process.env.OPENSSL_LEGACY_PROVIDER_ENABLED !== "true") {
-  try {
-    const crypto = require("crypto");
-    if (crypto.setEngine) {
-      crypto.setEngine("openssl-legacy-provider-id");
-    }
-    // Node.js 17+ OpenSSL 3.0 fix: enable legacy provider at runtime
-    const ossl = require("openssl");
-  } catch {
-    // openssl package not available, rely on NODE_OPTIONS
-  }
-  process.env.OPENSSL_LEGACY_PROVIDER_ENABLED = "true";
-}
-
 export interface FirebaseProfile {
   id: string;
   uid: string;
@@ -156,4 +140,21 @@ export async function getProfileBySession(cookies: { get(name: string): { value:
 
   if (!decoded) return null;
   const snapshot = await db.collection("profiles").doc(decoded.uid).get();
-  const data = snapshot.d
+  const data = snapshot.data() as Omit<FirebaseProfile, "id"> | undefined;
+
+  if (!data?.role) return null;
+
+  return {
+    id: decoded.uid,
+    uid: data.uid ?? decoded.uid,
+    platformUserId: data.platformUserId,
+    email: decoded.email ?? data.email,
+    name: data.name ?? decoded.name ?? decoded.email ?? "Campus User",
+    role: data.role,
+    department: data.department,
+    institutionId: data.institutionId,
+    avatarColor: data.avatarColor ?? "#c52a58",
+    forcePasswordReset: Boolean(data.forcePasswordReset),
+  } satisfies Person & { platformUserId?: string; institutionId?: string; forcePasswordReset: boolean };
+}
+
