@@ -22,6 +22,11 @@ export const metadata: Metadata = {
     description: "Enterprise attendance & campus operations platform.",
     type: "website",
   },
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-16x16.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -30,6 +35,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans`}>
+        <link rel="manifest" href="/manifest.json" />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -42,3 +48,4 @@ export default function RootLayout({
     </html>
   );
 }
+
