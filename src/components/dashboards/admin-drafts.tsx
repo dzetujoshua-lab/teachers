@@ -23,6 +23,14 @@ interface DraftRow {
   updatedAt: string;
 }
 
+interface SpreadsheetStudentRow {
+  idNo: string;
+  classCode: string;
+  studentName: string;
+  email: string;
+}
+
+
 export function AdminDraftsDashboard() {
    const [showCreate, setShowCreate] = React.useState(false);
     const [selectedDraft, setSelectedDraft] = React.useState<DraftRow | null>(null);
@@ -39,10 +47,12 @@ export function AdminDraftsDashboard() {
     const drafts = draftsData?.rows || [];
 
   const [facilitators, setFacilitators] = React.useState<{ id: string; name?: string; email?: string }[]>([]);
-  const [allStudents, setAllStudents] = React.useState<{ id: string; name: string; studentId?: string }[]>([]);
+  const [allStudents, setAllStudents] = React.useState<{ id: string; name: string; studentId?: string; email?: string }[]>([]);
   const [newTitle, setNewTitle] = React.useState("");
   const [selectedStudents, setSelectedStudents] = React.useState<string[]>([]);
   const [selectedFacilitator, setSelectedFacilitator] = React.useState<string | null>(null);
+
+
   const [creating, setCreating] = React.useState(false);
   const [creatingCampus, setCreatingCampus] = React.useState(false);
 const [creatingStudent, setCreatingStudent] = React.useState(false);
@@ -111,6 +121,209 @@ const handleAutoGenerateToday = async () => {
       }
     };
 
+  const [editableRows, setEditableRows] = React.useState<SpreadsheetStudentRow[]>([
+    { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu" },
+    { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu" },
+    { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu" },
+    { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu" },
+    { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu" },
+  ]);
+
+  const syncEditableRowsFromText = () => {
+    const lines = bulkStudentsText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const parsed = lines
+      .map((line) => {
+        const parts = line.split(",").map((p) => p.trim());
+        const [idNo = "", classCode = "", studentName = "", email = ""] = parts;
+        if (!idNo && !classCode && !studentName && !email) return null;
+        return { idNo, classCode, studentName, email };
+      })
+      .filter((r): r is SpreadsheetStudentRow => Boolean(r));
+    setEditableRows(parsed);
+  };
+
+  const syncTextFromEditableRows = () => {
+    const text = editableRows
+      .map((r) => `${r.idNo},${r.classCode},${r.studentName},${r.email}`)
+      .join("\n");
+    setBulkStudentsText(text);
+  };
+
+  React.useEffect(() => {
+    if (bulkStudentsText.trim()) {
+      syncEditableRowsFromText();
+    }
+  }, [bulkStudentsText]);
+
+  const handleEditableRowChange = (idx: number, field: keyof SpreadsheetStudentRow, value: string) => {
+    setEditableRows((prev) => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: value };
+      syncTextFromEditableRows();
+      return updated;
+    });
+  };
+
+  const addEditableRow = () => {
+    setEditableRows((prev) => [...prev, { idNo: "", classCode: "", studentName: "", email: "" }]);
+    setBulkStudentsText((prev) => `${prev}\n,,,,`);
+  };
+
+  const removeEditableRow = (idx: number) => {
+    setEditableRows((prev) => prev.filter((_, i) => i !== idx));
+    const lines = bulkStudentsText.split("\n").filter((_, i) => i !== idx);
+    setBulkStudentsText(lines.join("\n"));
+  };
+
+  const handleRowPaste = (e: React.ClipboardEvent, idx: number) => {
+    const pasted = e.clipboardData.getData("text/plain");
+    const lines = pasted.split("\n").filter((l) => l.trim());
+    if (lines.length <= 1) return;
+    e.preventDefault();
+const newRows = lines.map((line) => {
+       const parts = line.split(",").map((p) => p.trim());
+       const [rawStudentId = "", classCode = "", name = "", email = ""] = parts;
+       return { idNo: rawStudentId, classCode, studentName: name, email };
+     }).filter((r): r is SpreadsheetStudentRow => Boolean(r));
+    setEditableRows((prev) => {
+      const updated = [...prev];
+      updated.splice(idx, 1, ...newRows);
+      syncTextFromEditableRows();
+      return updated;
+    });
+  };
+
+  const renderEditableTable = () => (
+    <div className="rounded-lg border border-slate-300 bg-background">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-200 text-slate-800">
+              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold w-12">#</th>
+              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">ID No.</th>
+              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">Class</th>
+              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">Student Name</th>
+              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">Email</th>
+              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold w-10"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {editableRows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="border border-slate-300 px-3 py-6 text-center text-xs text-muted-foreground">
+                  Paste or type student data in the text area below to populate the table, or use the inputs above to add rows manually.
+                </td>
+              </tr>
+            ) : (
+              editableRows.map((r, idx) => (
+<tr
+                   key={`${r.idNo}-${r.classCode}-${idx}`}
+                   onPaste={(e) => handleRowPaste(e, idx)}
+                 >
+                  <td className="border border-slate-300 px-3 py-1.5 text-center font-mono text-muted-foreground font-medium bg-slate-100">
+                    {idx + 1}
+                  </td>
+                  <td className="border border-slate-300 px-3 py-1.5">
+                    <input
+                      type="text"
+                      className="w-full bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-sm px-1 py-0.5 font-mono text-sm"
+                      value={r.idNo}
+                      onChange={(e) => handleEditableRowChange(idx, "idNo", e.target.value)}
+                      placeholder="101"
+                    />
+                  </td>
+                  <td className="border border-slate-300 px-3 py-1.5">
+                    <input
+                      type="text"
+                      className="w-full bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-sm px-1 py-0.5 text-sm"
+                      value={r.classCode}
+                      onChange={(e) => handleEditableRowChange(idx, "classCode", e.target.value)}
+                      placeholder="A-101"
+                    />
+                  </td>
+                  <td className="border border-slate-300 px-3 py-1.5">
+                    <input
+                      type="text"
+                      className="w-full bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-sm px-1 py-0.5 text-sm"
+                      value={r.studentName}
+                      onChange={(e) => handleEditableRowChange(idx, "studentName", e.target.value)}
+                      placeholder="John Doe"
+                    />
+                  </td>
+                  <td className="border border-slate-300 px-3 py-1.5">
+                    <input
+                      type="text"
+                      className="w-full bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-sm px-1 py-0.5 text-sm"
+                      value={r.email}
+                      onChange={(e) => handleEditableRowChange(idx, "email", e.target.value)}
+                      placeholder="john@example.com"
+                    />
+                  </td>
+                  <td className="border border-slate-300 px-3 py-1.5 text-center">
+                    <button
+                      type="button"
+                      onClick={() => removeEditableRow(idx)}
+                      className="shrink-0 p-1 rounded-md hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                      title="Remove row"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+<div className="flex items-center justify-between border-t border-slate-300 p-3 bg-slate-50">
+         <div className="flex items-center gap-2">
+           <div className="text-xs text-muted-foreground">
+             Format: <span className="font-medium">ID No.,Class,Student Name,Email</span> (one per line)
+           </div>
+           <Button
+             type="button"
+             variant="outline"
+             size="sm"
+             onClick={() => {
+               setEditableRows([]);
+               setBulkStudentsText("");
+             }}
+             className="shrink-0"
+           >
+             Clear All
+           </Button>
+         </div>
+         <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addEditableRow}
+          className="shrink-0 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 border-yellow-500"
+        >
+          <Plus className="size-3.5 mr-1" /> Add Row
+        </Button>
+      </div>
+
+      <div className="p-3 border-t border-slate-300 bg-slate-50">
+        <textarea
+          className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          placeholder={`101,A-101,John Doe,john@example.com\n102,B-102,Jane Doe,jane@example.com`}
+          value={bulkStudentsText}
+          onChange={(e) => setBulkStudentsText(e.target.value)}
+        />
+      </div>
+    </div>
+  );
+
+  const formatStudentIdNumber = (raw: string) => {
+    const digitsOnly = String(raw).replace(/\D+/g, "");
+    const asNumber = Number(digitsOnly);
+    return Number.isFinite(asNumber) ? String(asNumber) : raw;
+  };
   const handleEditDraft = (draft: DraftRow) => {
     setSelectedDraft(draft);
     setEditMembers(draft.members.map((m) => ({ ...m })));
@@ -186,13 +399,14 @@ if (res.ok) {
         body: JSON.stringify({
           title: selectedDraft.title,
           classId: selectedDraft.classId || null,
-          facilitatorId: selectedDraft.facilitatorId,
+          // Intentionally NOT assigning to a specific facilitator.
           members: selectedDraft.members.map((m) => ({
             studentId: m.studentId,
             name: m.name,
           })),
         }),
       });
+
 
       const result = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -503,207 +717,123 @@ if (res.ok) {
       </PageHeader>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="space-y-4 p-5">
-          <h3 className="text-sm font-semibold">Create Campus</h3>
-          <Input
-            placeholder="Campus name"
-            value={newCampus.name}
-            onChange={(e) => setNewCampus((current) => ({ ...current, name: e.target.value }))}
-          />
-          <Input
-            placeholder="Location"
-            value={newCampus.location}
-            onChange={(e) => setNewCampus((current) => ({ ...current, location: e.target.value }))}
-          />
-          <Button onClick={handleCreateCampus} disabled={creatingCampus} className="w-full">
-            {creatingCampus ? "Saving campus..." : "Create Campus"}
+<Card className="space-y-4 p-5 xl:col-span-2">
+          <h3 className="text-sm font-semibold">Create Attendance Draft</h3>
+          <p className="text-xs text-muted-foreground">
+            Enter student data in the table below. Columns: ID No., Class, Student Name, Email
+          </p>
+          {renderEditableTable()}
+          <Button
+            onClick={async () => {
+              if (editableRows.length === 0) return alert("Enter at least one student row");
+              const members = editableRows
+                .filter(r => r.idNo && r.classCode && r.studentName && r.email)
+                .map(r => ({ studentId: r.idNo, name: r.studentName, email: r.email }));
+              if (members.length === 0) return alert("Enter valid student data");
+              setCreating(true);
+              try {
+                const res = await fetch("/api/attendance/drafts", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    title: newTitle || "Attendance draft",
+                    classId: null,
+                    members,
+                  }),
+                });
+                if (res.ok) {
+                  alert("Draft created and sent");
+                  setNewTitle("");
+                  setBulkStudentsText("");
+                  setEditableRows([
+                    { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu" },
+                    { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu" },
+                    { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu" },
+                    { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu" },
+                    { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu" },
+                  ]);
+                } else {
+                  const err = await res.json().catch(() => ({}));
+                  alert(err.error || "Failed to create draft");
+                }
+              } catch (err) {
+                console.error("Create draft error:", err);
+                alert("Error creating draft");
+              } finally {
+                setCreating(false);
+              }
+            }}
+            disabled={creating}
+          >
+            {creating ? "Creating..." : "Create & Send"}
           </Button>
         </Card>
 
-<Card className="space-y-4 p-5">
-           <h3 className="text-sm font-semibold">Create Student</h3>
-           <Input
-             placeholder="Student ID"
-             value={newStudent.studentId}
-             onChange={(e) => setNewStudent((current) => ({ ...current, studentId: e.target.value }))}
-           />
-           <Input
-             placeholder="Name"
-             value={newStudent.name}
-             onChange={(e) => setNewStudent((current) => ({ ...current, name: e.target.value }))}
-           />
-           <Input
-             placeholder="Email"
-             value={newStudent.email}
-             onChange={(e) => setNewStudent((current) => ({ ...current, email: e.target.value }))}
-           />
-           <select
-             value={newStudent.campusId}
-             onChange={(e) => setNewStudent((current) => ({ ...current, campusId: e.target.value }))}
-             className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-           >
-             <option value="">Assign to campus (optional)</option>
-             {campuses.map((campus) => (
-               <option key={campus.id} value={campus.id}>{campus.name}</option>
-             ))}
-           </select>
-           <Button onClick={handleCreateStudent} disabled={creatingStudent} className="w-full">
-             {creatingStudent ? "Saving student..." : "Create Student"}
-           </Button>
-         </Card>
-
-         <Card className="space-y-4 p-5">
-           <h3 className="text-sm font-semibold">Create Multiple Students</h3>
-           <p className="text-xs text-muted-foreground">Paste students (one per line: studentId, name, email)</p>
-           <textarea
-             placeholder="STU001, John Doe, john@email.com
-STU002, Jane Smith, jane@email.com"
-             value={bulkStudentsText}
-             onChange={(e) => setBulkStudentsText(e.target.value)}
-             className="w-full h-24 rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none"
-           />
-           <select
-             value={bulkCampusId}
-             onChange={(e) => setBulkCampusId(e.target.value)}
-             className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-           >
-             <option value="">Assign to campus (optional)</option>
-             {campuses.map((campus) => (
-               <option key={campus.id} value={campus.id}>{campus.name}</option>
-             ))}
-           </select>
-           <Button onClick={handleCreateBulkStudents} disabled={creatingBulkStudents} className="w-full">
-             {creatingBulkStudents ? "Creating..." : "Create All Students"}
-           </Button>
-         </Card>
-
         <Card className="space-y-4 p-5">
-          <h3 className="text-sm font-semibold">Create Class</h3>
-          <Input
-            placeholder="Class code"
-            value={classForm.code}
-            onChange={(e) => setClassForm((current) => ({ ...current, code: e.target.value }))}
-          />
-          <Input
-            placeholder="Class name"
-            value={classForm.name}
-            onChange={(e) => setClassForm((current) => ({ ...current, name: e.target.value }))}
-          />
-          <select
-            value={classForm.campusId}
-            onChange={(e) => setClassForm((current) => ({ ...current, campusId: e.target.value }))}
-            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Choose campus</option>
-            {campuses.map((campus) => (
-              <option key={campus.id} value={campus.id}>{campus.name}</option>
-            ))}
-          </select>
-          <div className="grid gap-2">
-            <p className="text-xs font-medium">Select facilitator</p>
-            {facilitators.map((f) => (
-              <Button
-                key={f.id}
-                variant={classForm.facilitatorId === f.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setClassForm((current) => ({ ...current, facilitatorId: f.id }))}
-              >
-                {f.name || f.email}
-              </Button>
-            ))}
-          </div>
+          <h3 className="text-sm font-semibold">Quick actions</h3>
           <div className="space-y-2">
-            <p className="text-xs font-medium">Select students</p>
-            <div className="max-h-40 overflow-y-auto rounded-lg border border-border bg-background p-2">
-              {allStudents.slice(0, 50).map((student) => (
-                <label key={student.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={classForm.members.includes(student.id)}
-                    onChange={() => {
-                      setClassForm((current) => {
-                        const selected = current.members.includes(student.id)
-                          ? current.members.filter((id) => id !== student.id)
-                          : [...current.members, student.id];
-                        return { ...current, members: selected };
-                      });
-                    }}
-                  />
-                  <span>{student.name} · {student.studentId}</span>
-                </label>
-              ))}
-            </div>
+            <Button onClick={() => setShowCreate(true)} className="w-full">
+              <Plus className="size-4" /> Create new draft
+            </Button>
           </div>
-          <Button onClick={handleCreateClass} disabled={creatingClass} className="w-full">
-            {creatingClass ? "Saving class..." : "Create Class"}
-          </Button>
         </Card>
       </div>
 
       {showCreate && (
         <Card className="p-6">
           <h3 className="text-sm font-medium mb-2">Create Attendance Draft</h3>
-          <div className="grid gap-3">
-            <Input placeholder="Draft title" value={newTitle} onChange={(e) => setNewTitle((e.target as HTMLInputElement).value)} />
-
-            <div>
-              <p className="text-xs font-medium mb-1">Select Facilitator</p>
-              <div className="grid gap-2">
-                {facilitators.map((f) => (
-                  <Button key={f.id} variant={selectedFacilitator === f.id ? "default" : "outline"} size="sm" onClick={() => setSelectedFacilitator(f.id)}>
-                    {f.name || f.email}
-                  </Button>
-                ))}
-                {facilitators.length === 0 && <p className="text-xs text-muted-foreground">No facilitators found</p>}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium mb-1">Select Students</p>
-              <div className="grid gap-2 max-h-48 overflow-y-auto">
-                {allStudents.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={selectedStudents.includes(s.id)} onChange={() => {
-                      setSelectedStudents(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id]);
-                    }} />
-                    <span>{s.name} · {s.studentId}</span>
-                  </label>
-                ))}
-                {allStudents.length === 0 && <p className="text-xs text-muted-foreground">No students found</p>}
-              </div>
-            </div>
-
+          <div className="space-y-4">
+            <Input placeholder="Draft title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+            {renderEditableTable()}
             <div className="flex gap-2">
-              <Button onClick={async () => {
-                if (!selectedFacilitator) return alert('Select a facilitator');
-                if (selectedStudents.length === 0) return alert('Select at least one student');
-                setCreating(true);
-                try {
-                  const members = allStudents.filter(s => selectedStudents.includes(s.id)).map(s => ({ studentId: s.id, name: s.name }));
-                  const res = await fetch('/api/attendance/drafts', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: newTitle || 'Attendance draft', facilitatorId: selectedFacilitator, members }),
-                  });
-                  if (res.ok) {
-                    alert('Draft created and assigned');
-                    setShowCreate(false);
-                    setNewTitle('');
-                    setSelectedStudents([]);
-setSelectedFacilitator(null);
-                  } else {
-                    const err = await res.json().catch(() => ({}));
-                    alert(err.error || 'Failed to create draft');
+              <Button
+                onClick={async () => {
+                  if (editableRows.length === 0) return alert("Enter at least one student row");
+                  const members = editableRows
+                    .filter(r => r.idNo && r.classCode && r.studentName && r.email)
+                    .map(r => ({ studentId: r.idNo, name: r.studentName, email: r.email }));
+                  if (members.length === 0) return alert("Enter valid student data");
+                  setCreating(true);
+                  try {
+                    const res = await fetch("/api/attendance/drafts", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        title: newTitle || "Attendance draft",
+                        classId: null,
+                        members,
+                      }),
+                    });
+                    if (res.ok) {
+                      alert("Draft created and sent");
+                      setShowCreate(false);
+                      setNewTitle("");
+                      setBulkStudentsText("");
+                      setEditableRows([
+                        { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu" },
+                        { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu" },
+                        { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu" },
+                        { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu" },
+                        { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu" },
+                      ]);
+                    } else {
+                      const err = await res.json().catch(() => ({}));
+                      alert(err.error || "Failed to create draft");
+                    }
+                  } catch (err) {
+                    console.error("Create draft error:", err);
+                    alert("Error creating draft");
+                  } finally {
+                    setCreating(false);
                   }
-                } catch (err) {
-                  console.error('Create draft error:', err);
-                  alert('Error creating draft');
-                } finally {
-                  setCreating(false);
-                }
-              }} disabled={creating}>
-                {creating ? 'Creating...' : 'Create & Assign'}
+                }}
+                disabled={creating}
+              >
+                {creating ? "Creating..." : "Create & Send"}
               </Button>
-              <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setShowCreate(false)}>
+                Cancel
+              </Button>
             </div>
           </div>
         </Card>

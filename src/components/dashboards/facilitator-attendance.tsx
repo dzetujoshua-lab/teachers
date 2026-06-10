@@ -211,10 +211,11 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
            method: "POST",
            headers: { "Content-Type": "application/json" },
            body: JSON.stringify({
-             title: `${session.course} - ${session.room} - ${new Date().toLocaleDateString()}`,
+            title: `${session.course} - ${session.room} - ${new Date().toLocaleDateString()}`,
              classId: session.id,
-             facilitatorId: uid,
+
              members: session.members.map((m: any) => ({
+
                studentId: m.studentId,
                name: m.name,
                status: m.status,
@@ -299,47 +300,31 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
              
              <div className="space-y-4">
                <div>
-                 <Label className="text-base font-medium mb-3 block">Available Classes</Label>
+                 <Label className="text-base font-medium mb-3 block">Choose a class</Label>
                  {classesLoading ? (
                    <p className="text-sm text-muted-foreground">Loading classes...</p>
                  ) : classes.length === 0 ? (
-                   <p className="text-sm text-muted-foreground">No classes assigned to you yet</p>
+                   <p className="text-sm text-muted-foreground">No classes found</p>
                  ) : (
-                   <div className="grid gap-3">
+                   <select
+                     value={selectedClass?.id ?? ""}
+                     onChange={(e) => {
+                       const id = e.target.value;
+                       const cls = classes.find((c) => String(c.id) === id);
+                       setSelectedClass(cls ?? null);
+                     }}
+                     className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                   >
+                     <option value="">Select class...</option>
                      {classes.map((cls) => (
-                       <div
-                         key={cls.id}
-                         onClick={() => setSelectedClass(cls)}
-                         className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                           selectedClass?.id === cls.id
-                             ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
-                             : "border-border hover:border-blue-300"
-                         }`}
-                       >
-                         <div className="flex justify-between items-start">
-                           <div>
-                             <p className="font-semibold">{cls.code}</p>
-                             <p className="text-sm text-muted-foreground">{cls.name}</p>
-                             {cls.institutionId && (
-                               <p className="text-xs text-muted-foreground mt-2">
-                                 Campus: {cls.institutionId}
-                               </p>
-                             )}
-                             {cls.members && (
-                               <p className="text-xs text-muted-foreground mt-1">
-                                 Students: {cls.members.length}
-                               </p>
-                             )}
-                           </div>
-                           {selectedClass?.id === cls.id && (
-                             <Check className="size-5 text-blue-500" />
-                           )}
-                         </div>
-                       </div>
+                       <option key={cls.id} value={cls.id}>
+                         {cls.code} - {cls.name}
+                       </option>
                      ))}
-                   </div>
+                   </select>
                  )}
                </div>
+
 
                <div className="flex gap-3 pt-4">
                  <Button

@@ -1,10 +1,8 @@
-# TODO — Performance / SEO / Accessibility Optimization
+# TODO - Fix Admin Draft "New Draft" table UI
 
-## Step 1: Baseline discovery
-- [ ] Verify which app is production target (user said proceed; treat both as candidates).
-- [ ] Run search for heavy client components (charts/live-feed/modals).
-- [ ] Identify any missing SEO primitives (robots/sitemap/OpenGraph/twitter/canonical).
+## Steps
+- [ ] Update `src/components/dashboards/admin-drafts.tsx`: replace the placeholder bulk UI + checkbox list with a table-like bulk entry area (paste lines: studentId, classCode/class, name, email) and parse into draft members.
+- [ ] Wire parsed rows into the create handler so `members` are created from the table input.
+- [ ] Remove/ignore unused placeholder sections that claim "Use New Draft" but show no table.
+- [ ] Run typecheck/lint/build if available.
 
-## Step 2: Performance (runtime)
-- [ ] Remove `suppressHydrationWarning` if safe; otherwise fix hydration root cause.
-- [ ] Convert unnecessary `
