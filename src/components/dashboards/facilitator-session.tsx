@@ -9,6 +9,7 @@ import {
   FileText,
   Leaf,
   UtensilsCrossed,
+  PauseCircle,
   Send,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -245,11 +246,11 @@ export function FacilitatorSession() {
                     </div>
                   </div>
 
-                  <div className="flex gap-1.5">
-                    {statuses.map((s) => {
-                      const active = mark.status === s.key;
-                      const Icon = s.key === "present" ? Check : s.key === "late" ? Clock : X;
-                      return (
+<div className="flex gap-1.5">
+                     {statuses.map((s) => {
+                       const active = mark.status === s.key;
+                       const Icon = s.key === "present" ? Check : s.key === "late" ? Clock : s.key === "suspended" ? PauseCircle : X;
+                       return (
                         <button
                           key={s.key}
                           onClick={() => setStatus(r.id, s.key)}

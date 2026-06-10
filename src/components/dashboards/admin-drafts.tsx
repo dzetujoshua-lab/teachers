@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Send, CheckCircle, Clock, AlertCircle, Edit, Save, ChefHat, Plus, X } from "lucide-react";
+import { Send, CheckCircle, Clock, AlertCircle, Edit, Save, ChefHat, Plus, X, PauseCircle } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -412,31 +412,35 @@ if (res.ok) {
                     {member.studentId}
                   </p>
                 </div>
-                <div className="flex gap-1">
-                  {(["present", "absent", "late", "excused"] as const).map(
-                    (status) => (
-                      <Button
-                        key={status}
-                        variant={
-                          member.status === status ? "default" : "outline"
-                        }
-                        size="sm"
-                        onClick={() => handleStatusChange(idx, status)}
-                      >
-                        {status === "present" && (
-                          <CheckCircle className="size-4" />
-                        )}
-                        {status === "absent" && (
-                          <AlertCircle className="size-4" />
-                        )}
-                        {status === "late" && (
-                          <Clock className="size-4" />
-                        )}
-                        {status !== "present" &&
-                          status !== "absent" &&
-                          status !== "late" &&
-                          status}
-                      </Button>
+<div className="flex gap-1">
+                   {(["present", "absent", "late", "excused", "suspended"] as const).map(
+                     (status) => (
+<Button
+                         key={status}
+                         variant={
+                           member.status === status ? "default" : "outline"
+                         }
+                         size="sm"
+                         onClick={() => handleStatusChange(idx, status)}
+                       >
+                         {status === "present" && (
+                           <CheckCircle className="size-4" />
+                         )}
+                         {status === "absent" && (
+                           <AlertCircle className="size-4" />
+                         )}
+                         {status === "late" && (
+                           <Clock className="size-4" />
+                         )}
+                         {status === "suspended" && (
+                           <PauseCircle className="size-4" />
+                         )}
+                         {status !== "present" &&
+                           status !== "absent" &&
+                           status !== "late" &&
+                           status !== "suspended" &&
+                           status}
+                       </Button>
                     )
                   )}
                 </div>
