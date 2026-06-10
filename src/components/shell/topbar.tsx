@@ -7,12 +7,11 @@ const OPEN_PALETTE_EVENT = "smartcampus:open-palette";
 import { Search } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Badge } from "@/components/ui/badge";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
+import { ChatWindow } from "@/components/notifications/ChatWindow";
 import type { Role, Person } from "@/lib/types";
-import { relativeTime } from "@/lib/utils";
-import { NotificationDetailsModal } from "@/components/shell/notification-details-modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type DisplayUser = Person & {
   platformUserId?: string;
@@ -21,22 +20,13 @@ type DisplayUser = Person & {
 
 export function Topbar({ role }: { role: Role }) {
   const [notifOpen, setNotifOpen] = React.useState(false);
-  const [notifications, setNotifications] = React.useState<
-    Array<{
-      id: string;
-      title: string;
-      body: string;
-      time: string;
-      read: boolean;
-    } & Record<string, any>>
-  >([]);
+  const [notifications, setNotifications] = React.useState<any[]>([]);
 
   const unread = notifications.filter((n) => !n.read).length;
 
   const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const [chatOpen, setChatOpen] = React.useState(false);
   const [notificationDetails, setNotificationDetails] = React.useState<any | null>(null);
-  const [detailsLoading, setDetailsLoading] = React.useState(false);
-  const [detailsError, setDetailsError] = React.useState<string | null>(null);
 
   const [currentUser, setCurrentUser] = React.useState<DisplayUser | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -67,7 +57,6 @@ export function Topbar({ role }: { role: Role }) {
         const rows = (data?.rows ?? []).filter((n: any) => {
           const audienceRole = String(n?.audienceRole ?? "").trim();
           const audienceId = String(n?.facilitatorId ?? n?.audienceId ?? "").trim();
-          // Match by role OR by specific facilitator ID (for facilitator-targeted notifications)
           return (
             audienceRole === String(role).trim() ||
             (role === "facilitator" && audienceId && audienceId === currentUser?.id)
@@ -96,6 +85,9 @@ export function Topbar({ role }: { role: Role }) {
     };
 
     fetchNotifications();
+    
+    const hourlyRefresh = setInterval(fetchNotifications, 60 * 60 * 1000);
+    return () => clearInterval(hourlyRefresh);
   }, [role, currentUser?.id]);
 
   const userToDisplay =
@@ -141,21 +133,23 @@ export function Topbar({ role }: { role: Role }) {
             <>
               <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
               <NotificationPanel
-                notifications={notifications}
+                notifications={notifications as any}
                 onClose={() => setNotifOpen(false)}
                 onSelectNotification={(n: any) => {
                   setNotifOpen(false);
-                  setDetailsOpen(true);
-                  setDetailsLoading(true);
-                  setDetailsError(null);
-                  setNotificationDetails(null);
                   if (!n.read) {
                     setNotifications((prev) =>
                       prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
                     );
                   }
                   setNotificationDetails(n);
-                  setDetailsLoading(false);
+
+                  // For message-type notifications with conversation, open chat; otherwise show details modal
+                  if (n.type === "message" && n.conversation) {
+                    setChatOpen(true);
+                  } else {
+                    setDetailsOpen(true);
+                  }
                 }}
               />
             </>
@@ -169,20 +163,36 @@ export function Topbar({ role }: { role: Role }) {
         </Link>
       </div>
 
-      <NotificationDetailsModal
-        open={detailsOpen}
-        onOpenChange={(o) => {
-          setDetailsOpen(o);
-          if (!o) {
-            setDetailsError(null);
-            setNotificationDetails(null);
-          }
-        }}
-        loading={detailsLoading}
-        error={detailsError}
-        notification={notificationDetails}
-      />
+      {detailsOpen && (
+        <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Notification Details</DialogTitle>
+            </DialogHeader>
+            {notificationDetails?.body ? (
+              <div className="text-sm text-muted-foreground">{notificationDetails.body}</div>
+            ) : (
+              <div className="text-sm text-muted-foreground">No content available.</div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {chatOpen && (
+        <Dialog open={chatOpen} onOpenChange={setChatOpen}>
+          <DialogContent className="max-w-2xl p-0">
+            {notificationDetails?.conversation ? (
+              <ChatWindow
+                conversation={notificationDetails.conversation}
+                initialMessages={notificationDetails.chatHistory ?? []}
+                onClose={() => setChatOpen(false)}
+              />
+            ) : (
+              <div className="p-6 text-sm text-muted-foreground">No conversation available.</div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </header>
   );
 }
-

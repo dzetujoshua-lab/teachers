@@ -27,7 +27,8 @@ export function relativeTime(date: Date | string): string {
   return `${days}d ago`;
 }
 
-export function initials(name: string): string {
+export function initials(name: string | undefined | null): string {
+  if (!name) return "";
   return name
     .split(" ")
     .map((p) => p[0])

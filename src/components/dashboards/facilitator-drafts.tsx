@@ -31,10 +31,10 @@ export function FacilitatorDraftsDashboard() {
    const [updatedMembers, setUpdatedMembers] = React.useState<Member[]>([]);
    const [submitting, setSubmitting] = React.useState(false);
 
-   const { data: draftsData, loading, lastUpdated } = useLiveData<{ rows: DraftRow[] }>(
-     "/api/attendance/drafts",
-     { pollInterval: 3000 }
-   );
+const { data: draftsData, loading, lastUpdated } = useLiveData<{ rows: DraftRow[] }>(
+      "/api/attendance/drafts",
+      { pollInterval: 3000, refreshInterval: 60 * 60 * 1000 }
+    );
 
    const drafts = draftsData?.rows || [];
 

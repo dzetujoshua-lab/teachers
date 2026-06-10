@@ -7,10 +7,8 @@ import {
   Clock,
   X,
   FileText,
-  Flame,
   Leaf,
   UtensilsCrossed,
-  Ban,
   Send,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -32,13 +30,12 @@ const statuses: { key: AttendanceStatus; label: string; cls: string }[] = [
   { key: "late", label: "Late", cls: "bg-amber-500/15 text-amber-400 ring-amber-500/30" },
   { key: "excused", label: "Excused", cls: "bg-charcoal-500/15 text-muted-foreground ring-border" },
   { key: "absent", label: "Absent", cls: "bg-red-500/15 text-red-400 ring-red-500/30" },
+  { key: "suspended", label: "Suspended", cls: "bg-wine-500/15 text-wine-400 ring-wine-500/30" },
 ];
 
 const meals: { key: MealPreference; label: string; icon: typeof Flame }[] = [
-  { key: "pepper", label: "Pepper", icon: Flame },
   { key: "pepper_free", label: "Pepper-Free", icon: Leaf },
   { key: "alternative", label: "Alternative", icon: UtensilsCrossed },
-  { key: "no_meal", label: "No Meal", icon: Ban },
 ];
 
 interface Mark {

@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn, initials } from "@/lib/utils";
 
 interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
-  name: string;
+  name?: string;
   color?: string;
   size?: "sm" | "md" | "lg";
 }

@@ -6,11 +6,12 @@ export interface LiveDataOptions {
   pollInterval?: number;
   enabled?: boolean;
   immediate?: boolean;
+  refreshInterval?: number;
 }
 
 export function useLiveData<T>(
   url: string | null,
-  options: LiveDataOptions = {}
+  options: LiveDataOptions = {},
 ): {
   data: T | null;
   loading: boolean;
@@ -18,7 +19,7 @@ export function useLiveData<T>(
   lastUpdated: Date | null;
   refetch: () => void;
 } {
-  const { pollInterval = 30000, enabled = true, immediate = true } = options;
+  const { pollInterval = 30000, enabled = true, immediate = true, refreshInterval = 0 } = options;
   const [data, setData] = React.useState<T | null>(null);
   const [loading, setLoading] = React.useState(immediate);
   const [error, setError] = React.useState<string | null>(null);
@@ -64,6 +65,41 @@ export function useLiveData<T>(
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [fetchData, enabled, pollInterval]);
+
+  React.useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0) return;
+
+    const getNextRefresh = () => {
+      const now = new Date();
+      const next = new Date(now);
+      const msUntilNext = (refreshInterval - (now.getTime() % refreshInterval));
+      next.setTime(next.getTime() + msUntilNext);
+      return next;
+    };
+
+    const scheduleNextRefresh = () => {
+      const next = getNextRefresh();
+      const msUntil = next.getTime() - Date.now();
+      if (msUntil > 0 && msUntil < 24 * 60 * 60 * 1000) {
+        const timer = setTimeout(() => {
+          fetchData();
+        }, msUntil);
+        return timer;
+      }
+      return null;
+    };
+
+    let timer: ReturnType<typeof setTimeout> | null = scheduleNextRefresh();
+    const interval = setInterval(() => {
+      if (timer) clearTimeout(timer);
+      timer = scheduleNextRefresh();
+    }, refreshInterval);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [fetchData, refreshInterval]);
 
   return { data, loading, error, lastUpdated, refetch: fetchData };
 }

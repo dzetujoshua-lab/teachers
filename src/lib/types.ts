@@ -4,9 +4,9 @@ export type Role =
   | "kitchen_manager"
   | "security_officer";
 
-export type AttendanceStatus = "present" | "absent" | "late" | "excused";
+export type AttendanceStatus = "present" | "absent" | "late" | "excused" | "suspended";
 
-export type MealPreference = "pepper" | "pepper_free" | "alternative" | "no_meal";
+export type MealPreference = "pepper_free" | "alternative";
 
 export type DietaryTag = "vegetarian" | "vegan" | "halal" | "gluten_free" | "nut_allergy";
 

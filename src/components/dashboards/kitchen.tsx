@@ -101,9 +101,9 @@ export function KitchenDashboard() {
                          {m.preference.replace("_", "-")}
                        </p>
                      </div>
-                     <Badge variant={m.preference === "pepper" ? "wine" : "warning"}>
-                       {m.estimated.toLocaleString()} est.
-                     </Badge>
+<Badge variant="warning">
+                        {m.estimated.toLocaleString()} est.
+                      </Badge>
                    </div>
                    <div className="mt-3 flex items-center gap-3">
                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">

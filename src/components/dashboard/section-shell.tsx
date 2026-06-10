@@ -41,6 +41,7 @@ import { ROLES } from "@/lib/roles";
 import { AdminClassesDashboard } from "@/components/dashboards/admin-classes";
 import { AdminDraftsDashboard } from "@/components/dashboards/admin-drafts";
 import { FacilitatorDraftsDashboard } from "@/components/dashboards/facilitator-drafts";
+import { AttendanceStatisticsDashboard } from "@/components/dashboards/attendance-statistics";
 import { useCampuses as useCampusesData, useInsights as useInsightsData, useMeals as useMealsData, useBuildings as useBuildingsData, useWeeklyAttendance as useWeeklyAttendanceData, useHourlyOccupancy as useHourlyOccupancyData, useSessions as useSessionsData, useAuditLogs as useAuditLogsData, useStudents as useStudentsData, useNotifications as useNotificationsData, useMealSplit as useMealSplitData, useDepartments as useDepartmentsData, useLiveFeed as useLiveFeedData } from "@/lib/firebase/data";
 import type { Role } from "@/lib/types";
 import { cn, relativeTime } from "@/lib/utils";
@@ -68,6 +69,7 @@ const moduleCopy: Record<string, string> = {
   alerts: "Triage alerts, send broadcasts, and confirm resolution.",
   attendance: "Review attendance history and request corrections.",
   achievements: "Track milestones, streaks, and attendance achievements.",
+  "attendance-stats": "View attendance trends and department comparison statistics.",
 };
 
 const classes = [
@@ -1079,7 +1081,7 @@ function KitchenModules({ section, pushToast }: { section: string; pushToast: (t
     return (
       <div className="grid gap-6 lg:grid-cols-3">
         <SectionCard title="Meal demand split">
-          <MealDonutChart data={(mealRows || []).map((m: any) => ({ id: m.id, name: m.meal || m.preference || "Meal", value: m.estimated || m.served || 1, color: m.preference === "pepper" ? "#c52a58" : "#f59e0b" }))} />
+          <MealDonutChart data={(mealRows || []).map((m: any) => ({ id: m.id, name: m.meal || m.preference || "Meal", value: m.estimated || m.served || 1, color: m.preference === "pepper_free" ? "#f59e0b" : "#6366f1" }))} />
         </SectionCard>
         <SectionCard title="Service progress" className="lg:col-span-2" noPadding>
           <div className="divide-y divide-border/60">
@@ -1147,6 +1149,8 @@ function moduleIcon(section: string) {
       return ClipboardCheck;
     case "achievements":
       return Check;
+    case "attendance-stats":
+      return BarChart3;
     default:
       return Activity;
   }
@@ -1239,6 +1243,7 @@ export function SectionShell({ role, title, section }: { role: Role; title: stri
         if (role === "super_admin") {
           if (section === "classes") return <AdminClassesDashboard />;
           if (section === "drafts") return <AdminDraftsDashboard />;
+          if (section === "attendance-stats") return <AttendanceStatisticsDashboard />;
           return <CampusModules section={section} query={query} filter={filter} pushToast={(t) => setToast(t)} campusRows={campusRows} insights={insights} departmentTrend={deptTrend} weeklyAttendance={weeklyAttendance} />;
         }
         if (role === "facilitator") {

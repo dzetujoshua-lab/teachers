@@ -17,6 +17,24 @@ export function NotificationDashboard() {
 
   const unreadCount = localNotifications.filter((n) => !n.read).length;
 
+  React.useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch("/api/admin/firestore?collection=notifications");
+        const data = await res.json();
+        const rows = data?.rows ?? [];
+        setLocalNotifications(rows);
+      } catch {
+        // Keep existing notifications on error
+      }
+    };
+
+    fetchNotifications();
+
+    const hourlyRefresh = setInterval(fetchNotifications, 60 * 60 * 1000);
+    return () => clearInterval(hourlyRefresh);
+  }, []);
+
   const handleTogglePanel = React.useCallback(() => {
     setIsPanelOpen((prev) => !prev);
   }, []);
@@ -29,17 +47,27 @@ export function NotificationDashboard() {
     setLocalNotifications((prev) =>
       prev.map((n) => (n.id === notification.id && !n.read ? { ...n, read: true } : n))
     );
-    setSelectedNotification(notification);
+
+    // Requirement: only "message" notifications open the chat UI.
+    if (notification.type === "message" && notification.conversation) {
+      setSelectedNotification(notification);
+    } else {
+      setSelectedNotification(null);
+    }
+
     setIsPanelOpen(false);
   }, []);
+
 
   const handleBackToNotifications = React.useCallback(() => {
     setSelectedNotification(null);
     setIsPanelOpen(true);
   }, []);
 
-  const selectedConversation = selectedNotification?.conversation;
-  const selectedMessages = selectedNotification?.chatHistory ?? [];
+  const selectedConversation =
+    selectedNotification?.type === "message" ? selectedNotification?.conversation : undefined;
+  const selectedMessages = selectedConversation ? (selectedNotification?.chatHistory ?? []) : [];
+
 
   return (
     <div className="min-h-screen bg-background">

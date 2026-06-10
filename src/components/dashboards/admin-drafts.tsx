@@ -45,8 +45,11 @@ export function AdminDraftsDashboard() {
   const [selectedFacilitator, setSelectedFacilitator] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
   const [creatingCampus, setCreatingCampus] = React.useState(false);
-  const [creatingStudent, setCreatingStudent] = React.useState(false);
-  const [creatingClass, setCreatingClass] = React.useState(false);
+const [creatingStudent, setCreatingStudent] = React.useState(false);
+   const [creatingBulkStudents, setCreatingBulkStudents] = React.useState(false);
+   const [bulkStudentsText, setBulkStudentsText] = React.useState("");
+   const [bulkCampusId, setBulkCampusId] = React.useState("");
+   const [creatingClass, setCreatingClass] = React.useState(false);
   const [campuses, setCampuses] = React.useState<{ id: string; name: string; location?: string }[]>([]);
   const [classesList, setClassesList] = React.useState<any[]>([]);
   const [newCampus, setNewCampus] = React.useState({ name: "", location: "" });
@@ -259,12 +262,58 @@ if (res.ok) {
     } catch (err) {
       console.error("Error creating student:", err);
       alert("Error creating student");
-    } finally {
+} finally {
       setCreatingStudent(false);
     }
   };
 
-  const handleCreateClass = async () => {
+   const handleCreateBulkStudents = async () => {
+    const lines = bulkStudentsText.trim().split("\n").filter(line => line.trim());
+    if (lines.length === 0) {
+      alert("Enter at least one student");
+      return;
+    }
+
+    const students = lines.map(line => {
+      const parts = line.split(",").map(p => p.trim());
+      return {
+        studentId: parts[0] || "",
+        name: parts[1] || "",
+        email: parts[2] || "",
+      };
+    }).filter(s => s.studentId && s.name && s.email);
+
+    if (students.length === 0) {
+      alert("Each line must have: studentId, name, email");
+      return;
+    }
+
+    setCreatingBulkStudents(true);
+    try {
+      const res = await fetch("/api/students/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ students, campusId: bulkCampusId || undefined }),
+      });
+      const result = await res.json();
+
+      if (res.ok) {
+        setAllStudents((current) => [...result.students, ...current]);
+        setBulkStudentsText("");
+        setBulkCampusId("");
+        alert(`Created ${result.count} students`);
+      } else {
+        alert(result.error || "Failed to create students");
+      }
+    } catch (err) {
+      console.error("Error creating bulk students:", err);
+      alert("Error creating students");
+    } finally {
+      setCreatingBulkStudents(false);
+    }
+  };
+
+   const handleCreateClass = async () => {
     if (!classForm.code.trim() || !classForm.name.trim() || !classForm.facilitatorId.trim()) {
       alert("Class code, name, and facilitator are required");
       return;
@@ -467,37 +516,62 @@ if (res.ok) {
           </Button>
         </Card>
 
-        <Card className="space-y-4 p-5">
-          <h3 className="text-sm font-semibold">Create Student</h3>
-          <Input
-            placeholder="Student ID"
-            value={newStudent.studentId}
-            onChange={(e) => setNewStudent((current) => ({ ...current, studentId: e.target.value }))}
-          />
-          <Input
-            placeholder="Name"
-            value={newStudent.name}
-            onChange={(e) => setNewStudent((current) => ({ ...current, name: e.target.value }))}
-          />
-          <Input
-            placeholder="Email"
-            value={newStudent.email}
-            onChange={(e) => setNewStudent((current) => ({ ...current, email: e.target.value }))}
-          />
-          <select
-            value={newStudent.campusId}
-            onChange={(e) => setNewStudent((current) => ({ ...current, campusId: e.target.value }))}
-            className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Assign to campus (optional)</option>
-            {campuses.map((campus) => (
-              <option key={campus.id} value={campus.id}>{campus.name}</option>
-            ))}
-          </select>
-          <Button onClick={handleCreateStudent} disabled={creatingStudent} className="w-full">
-            {creatingStudent ? "Saving student..." : "Create Student"}
-          </Button>
-        </Card>
+<Card className="space-y-4 p-5">
+           <h3 className="text-sm font-semibold">Create Student</h3>
+           <Input
+             placeholder="Student ID"
+             value={newStudent.studentId}
+             onChange={(e) => setNewStudent((current) => ({ ...current, studentId: e.target.value }))}
+           />
+           <Input
+             placeholder="Name"
+             value={newStudent.name}
+             onChange={(e) => setNewStudent((current) => ({ ...current, name: e.target.value }))}
+           />
+           <Input
+             placeholder="Email"
+             value={newStudent.email}
+             onChange={(e) => setNewStudent((current) => ({ ...current, email: e.target.value }))}
+           />
+           <select
+             value={newStudent.campusId}
+             onChange={(e) => setNewStudent((current) => ({ ...current, campusId: e.target.value }))}
+             className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+           >
+             <option value="">Assign to campus (optional)</option>
+             {campuses.map((campus) => (
+               <option key={campus.id} value={campus.id}>{campus.name}</option>
+             ))}
+           </select>
+           <Button onClick={handleCreateStudent} disabled={creatingStudent} className="w-full">
+             {creatingStudent ? "Saving student..." : "Create Student"}
+           </Button>
+         </Card>
+
+         <Card className="space-y-4 p-5">
+           <h3 className="text-sm font-semibold">Create Multiple Students</h3>
+           <p className="text-xs text-muted-foreground">Paste students (one per line: studentId, name, email)</p>
+           <textarea
+             placeholder="STU001, John Doe, john@email.com
+STU002, Jane Smith, jane@email.com"
+             value={bulkStudentsText}
+             onChange={(e) => setBulkStudentsText(e.target.value)}
+             className="w-full h-24 rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none"
+           />
+           <select
+             value={bulkCampusId}
+             onChange={(e) => setBulkCampusId(e.target.value)}
+             className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+           >
+             <option value="">Assign to campus (optional)</option>
+             {campuses.map((campus) => (
+               <option key={campus.id} value={campus.id}>{campus.name}</option>
+             ))}
+           </select>
+           <Button onClick={handleCreateBulkStudents} disabled={creatingBulkStudents} className="w-full">
+             {creatingBulkStudents ? "Creating..." : "Create All Students"}
+           </Button>
+         </Card>
 
         <Card className="space-y-4 p-5">
           <h3 className="text-sm font-semibold">Create Class</h3>

@@ -19,6 +19,7 @@ const statusVariant = {
   late: "warning",
   excused: "muted",
   absent: "danger",
+  suspended: "danger",
 } as const;
 
 export function LiveFeed({ events }: { events: AttendanceEvent[] }) {

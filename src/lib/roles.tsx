@@ -56,6 +56,7 @@ export const ROLES: Record<Role, RoleConfig> = {
       { label: "Campuses", href: "/dashboard/super_admin/campuses", icon: Globe },
       { label: "Classes", href: "/dashboard/super_admin/classes", icon: GraduationCap },
       { label: "Drafts", href: "/dashboard/super_admin/drafts", icon: ClipboardCheck },
+      { label: "Attendance Stats", href: "/dashboard/super_admin/attendance-stats", icon: BarChart3 },
       { label: "Subscriptions", href: "/dashboard/super_admin/subscriptions", icon: CreditCard },
       { label: "Global Analytics", href: "/dashboard/super_admin/analytics", icon: BarChart3 },
       { label: "Fraud Reports", href: "/dashboard/super_admin/fraud", icon: ShieldCheck, badge: "4" },

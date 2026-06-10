@@ -23,6 +23,7 @@ interface NotificationPanelProps {
   onSelectNotification: (notification: NotificationItem) => void;
 }
 
+
 export function NotificationPanel({ notifications, onClose, onSelectNotification }: NotificationPanelProps) {
   const panelRef = React.useRef<HTMLDivElement>(null);
 
@@ -96,14 +97,14 @@ export function NotificationPanel({ notifications, onClose, onSelectNotification
                   <span className="rounded-lg bg-muted/60 p-1.5 ring-1 ring-border/40">
                     {typeIcons[notification.type] ?? typeIcons.system}
                   </span>
-                  <div className="relative">
-                    <Avatar
-                      name={notification.senderName}
-                      color={notification.senderAvatarColor}
-                      size="sm"
-                      className="size-6 text-[9px]"
-                    />
-                    {notification.online && (
+<div className="relative">
+                     <Avatar
+                       name={notification.senderName ?? "System"}
+                       color={notification.senderAvatarColor ?? "#64748b"}
+                       size="sm"
+                       className="size-6 text-[9px]"
+                     />
+                     {notification.online && (
                       <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
                     )}
                   </div>
@@ -120,7 +121,10 @@ export function NotificationPanel({ notifications, onClose, onSelectNotification
                   <p className="mt-1.5 text-[10px] text-muted-foreground/80">{relativeTime(notification.time)}</p>
                 </div>
 
+
+
                 <div className="mt-1 shrink-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+
                   <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-card/60 text-[10px] text-muted-foreground">
                     View
                   </span>

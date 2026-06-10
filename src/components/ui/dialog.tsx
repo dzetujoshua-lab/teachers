@@ -39,9 +39,11 @@ export function DialogTrigger({
 export function DialogContent({
   children,
   className,
+  onClose,
 }: {
   children: React.ReactNode;
   className?: string;
+  onClose?: () => void;
 }) {
   return (
     <div
@@ -52,11 +54,7 @@ export function DialogContent({
     >
       {children}
       <button
-        onClick={() => {
-          // Find parent Dialog and close it
-          const event = new CustomEvent("dialog-close");
-          window.dispatchEvent(event);
-        }}
+        onClick={onClose}
         className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100"
       >
         <X className="h-4 w-4" />
