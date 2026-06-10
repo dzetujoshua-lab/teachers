@@ -151,7 +151,8 @@ export async function getProfileBySession(cookies: { get(name: string): { value:
   try {
     snapshot = await db.collection("profiles").doc(decoded.uid).get();
   } catch (err: any) {
-    if (err?.code === "resource-exhausted" || err?.code === 8) {
+    const code = (err?.code || "").toUpperCase();
+    if (code === "RESOURCE_EXHAUSTED" || err?.code === 8) {
       console.error("Firebase quota exceeded:", err);
       return null;
     }

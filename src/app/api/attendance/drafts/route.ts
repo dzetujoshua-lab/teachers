@@ -38,13 +38,14 @@ export async function GET(request: Request) {
      const rows = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
      return NextResponse.json({ rows });
-   } catch (error: any) {
-     if (error?.code === "resource-exhausted" || error?.code === 8) {
-       return NextResponse.json({ error: "Quota exceeded. Please try again later." }, { status: 429 });
-     }
-     console.error("Attendance drafts list error:", error);
-     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-   }
+} catch (error: any) {
+      const code = (error?.code || "").toUpperCase();
+      if (code === "RESOURCE_EXHAUSTED" || error?.code === 8) {
+        return NextResponse.json({ error: "Quota exceeded. Please try again later." }, { status: 429 });
+      }
+      console.error("Attendance drafts list error:", error);
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
  }
 
 export async function POST(request: Request) {

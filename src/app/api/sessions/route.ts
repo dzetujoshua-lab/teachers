@@ -17,22 +17,30 @@ export async function GET(request: Request) {
     const db = await getFirebaseAdminDb();
     if (!db) return NextResponse.json({ error: 'Firebase Admin is not configured.' }, { status: 500 });
 
-    const snapshot = await db.collection('sessions').get();
-    const sessions = snapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .filter((session: any) => {
-        if (status && session.status !== status) return false;
-        if (courseId && !String(session.course || '').toLowerCase().includes(courseId.toLowerCase())) return false;
-        if (facilitatorId && String(session.facilitatorId || session.facilitator) !== facilitatorId) return false;
-        if (profile.role === 'facilitator' && String(session.facilitatorId || '') !== profile.id && String(session.facilitator || '') !== profile.name) return false;
-        return true;
-      });
+    let query: any = db.collection('sessions');
+
+    if (facilitatorId) {
+      query = query.where('facilitatorId', '==', facilitatorId);
+    } else if (profile.role === 'facilitator') {
+      query = query.where('facilitatorId', '==', profile.id);
+    }
+
+    if (status) {
+      query = query.where('status', '==', status);
+    }
+
+    const snapshot = await query.get();
+    const sessions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
     return NextResponse.json({
       data: sessions,
       total: sessions.length,
     });
-  } catch (error) {
+  } catch (error: any) {
+    const code = (error?.code || "").toUpperCase();
+    if (code === "RESOURCE_EXHAUSTED" || error?.code === 8) {
+      return NextResponse.json({ error: 'Quota exceeded. Please try again later.' }, { status: 429 });
+    }
     console.error('Sessions fetch error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

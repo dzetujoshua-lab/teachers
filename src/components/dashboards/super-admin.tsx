@@ -44,20 +44,20 @@ export function SuperAdminDashboard({ user }: SuperAdminDashboardProps) {
     return <div className="p-6 text-red-500">Access Denied: Unauthorized Role</div>;
   }
 
-  const { data: campusesData, loading, lastUpdated } = useLiveData<{ rows: CampusRow[] }>(
-    "/api/admin/firestore?collection=campuses",
-    { pollInterval: 5000 }
-  );
+const { data: campusesData, loading, lastUpdated, error: campusesError } = useLiveData<{ rows: CampusRow[] }>(
+     "/api/admin/firestore?collection=campuses",
+     { pollInterval: 60000 }
+   );
 
-  const { data: insightsData } = useLiveData<{ rows: InsightRow[] }>(
-    "/api/admin/firestore?collection=aiInsights",
-    { pollInterval: 10000 }
-  );
+   const { data: insightsData, error: insightsError } = useLiveData<{ rows: InsightRow[] }>(
+     "/api/admin/firestore?collection=aiInsights",
+     { pollInterval: 120000 }
+   );
 
-  const { data: deptTrendData } = useLiveData<{ rows: DeptRow[] }>(
-    "/api/admin/firestore?collection=departmentTrend",
-    { pollInterval: 15000 }
-  );
+   const { data: deptTrendData, error: trendError } = useLiveData<{ rows: DeptRow[] }>(
+     "/api/admin/firestore?collection=departmentTrend",
+     { pollInterval: 120000 }
+   );
 
   const campuses = campusesData?.rows || [];
   const insights = insightsData?.rows || [];

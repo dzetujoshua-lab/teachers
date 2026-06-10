@@ -177,7 +177,7 @@ const handleAutoGenerateToday = async () => {
   };
 
   const addEditableRow = () => {
-    setEditableRows((prev) => [...prev, { idNo: "", classCode: "", studentName: "", email: "" }]);
+    setEditableRows((prev) => [...prev, { idNo: "", classCode: "", studentName: "", email: "", status: "present" }]);
     setBulkStudentsText((prev) => `${prev}\n,,,,`);
   };
 
@@ -782,13 +782,13 @@ if (res.ok) {
                   alert("Draft created and sent");
                   setNewTitle("");
                   setBulkStudentsText("");
-                  setEditableRows([
-                    { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu" },
-                    { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu" },
-                    { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu" },
-                    { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu" },
-                    { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu" },
-                  ]);
+setEditableRows([
+                     { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu", status: "present" },
+                     { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu", status: "present" },
+                     { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu", status: "present" },
+                     { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu", status: "present" },
+                     { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu", status: "present" },
+                   ]);
                 } else {
                   const err = await res.json().catch(() => ({}));
                   alert(err.error || "Failed to create draft");
@@ -847,13 +847,13 @@ if (res.ok) {
                       setShowCreate(false);
                       setNewTitle("");
                       setBulkStudentsText("");
-                      setEditableRows([
-                        { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu" },
-                        { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu" },
-                        { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu" },
-                        { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu" },
-                        { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu" },
-                      ]);
+setEditableRows([
+                         { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu", status: "present" },
+                         { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu", status: "present" },
+                         { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu", status: "present" },
+                         { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu", status: "present" },
+                         { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu", status: "present" },
+                       ]);
                     } else {
                       const err = await res.json().catch(() => ({}));
                       alert(err.error || "Failed to create draft");

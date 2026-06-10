@@ -59,10 +59,10 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
    const [classesLoading, setClassesLoading] = React.useState(false);
    const [classes, setClasses] = React.useState<ClassData[]>([]);
 
-   const { data: sessionData, loading, lastUpdated } = useLiveData<{ data: AttendanceSessionData[] }>(
-     `/api/sessions?facilitatorId=${uid}`,
-     { pollInterval: 2000 }
-   );
+const { data: sessionData, loading, lastUpdated } = useLiveData<{ data: AttendanceSessionData[] }>(
+      `/api/sessions?facilitatorId=${uid}`,
+      { pollInterval: 30000 }
+    );
 
    const liveSession = sessionData?.data?.find((s) => s.status === "live");
     
