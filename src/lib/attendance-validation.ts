@@ -13,8 +13,8 @@ export interface ValidatedDraft {
 export function validateDraftInput(data: any): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (!data.facilitatorId || typeof data.facilitatorId !== "string" || data.facilitatorId.trim().length === 0) {
-    errors.push("facilitatorId is required and must be a non-empty string");
+  if (data.facilitatorId && (typeof data.facilitatorId !== "string" || data.facilitatorId.trim().length === 0)) {
+    errors.push("facilitatorId must be a non-empty string when provided");
   }
 
   if (!Array.isArray(data.members) || data.members.length === 0) {

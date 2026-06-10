@@ -68,13 +68,10 @@ export async function POST(request: Request) {
 
     const { title, classId, facilitatorId, members } = body;
 
-    const db = await getFirebaseAdminDb();
-    if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
-
     const doc = {
       title: String(title || "Attendance draft"),
       classId: classId || null,
-      facilitatorId,
+      facilitatorId: facilitatorId || "unassigned",
       members: members.map((m: any) => ({ studentId: String(m.studentId), name: String(m.name || "") })),
       status: "draft",
       createdBy: profile.id,
@@ -86,17 +83,19 @@ export async function POST(request: Request) {
     const ref = await db.collection("attendanceDrafts").add(doc);
 
     // Create notification for facilitator (targeted by ID)
-    await db.collection("notifications").add({
-      title: "New class assignment",
-      body: `Admin assigned you to take attendance for "${title}". Open your drafts to get started.`,
-      type: "attendance",
-      time: doc.createdAt,
-      read: false,
-      audienceRole: "facilitator",
-      audienceId: facilitatorId,
-      attendanceDraftId: ref.id,
-      createdAt: doc.createdAt,
-    });
+    if (facilitatorId && facilitatorId !== "unassigned") {
+      await db.collection("notifications").add({
+        title: "New class assignment",
+        body: `Admin assigned you to take attendance for "${title}". Open your drafts to get started.`,
+        type: "attendance",
+        time: doc.createdAt,
+        read: false,
+        audienceRole: "facilitator",
+        audienceId: facilitatorId,
+        attendanceDraftId: ref.id,
+        createdAt: doc.createdAt,
+      });
+    }
 
     return NextResponse.json({ success: true, id: ref.id, draft: { id: ref.id, ...doc } });
   } catch (error) {

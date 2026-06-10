@@ -207,14 +207,15 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
        );
 
        if (!existingDraft) {
-         const createDraftRes = await fetch("/api/attendance/drafts", {
-           method: "POST",
-           headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({
-            title: `${session.course} - ${session.room} - ${new Date().toLocaleDateString()}`,
-             classId: session.id,
+          const createDraftRes = await fetch("/api/attendance/drafts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+             title: `${session.course} - ${session.room} - ${new Date().toLocaleDateString()}`,
+              classId: session.id,
+              facilitatorId: uid,
 
-             members: session.members.map((m: any) => ({
+              members: session.members.map((m: any) => ({
 
                studentId: m.studentId,
                name: m.name,

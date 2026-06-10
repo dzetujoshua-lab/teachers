@@ -28,6 +28,7 @@ interface SpreadsheetStudentRow {
   classCode: string;
   studentName: string;
   email: string;
+  status: AttendanceStatus;
 }
 
 
@@ -122,11 +123,11 @@ const handleAutoGenerateToday = async () => {
     };
 
   const [editableRows, setEditableRows] = React.useState<SpreadsheetStudentRow[]>([
-    { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu" },
-    { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu" },
-    { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu" },
-    { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu" },
-    { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu" },
+    { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu", status: "present" },
+    { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu", status: "present" },
+    { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu", status: "present" },
+    { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu", status: "present" },
+    { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu", status: "present" },
   ]);
 
   const syncEditableRowsFromText = () => {
@@ -201,68 +202,82 @@ const newRows = lines.map((line) => {
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-slate-200 text-slate-800">
-              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold w-12">#</th>
-              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">ID No.</th>
-              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">Class</th>
-              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">Student Name</th>
-              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">Email</th>
-              <th className="border border-slate-300 px-3 py-1.5 text-center font-bold w-10"></th>
+            <tr className="bg-slate-800 text-slate-100">
+              <th className="border border-slate-600 px-3 py-1.5 text-center font-bold w-12">#</th>
+              <th className="border border-slate-600 px-3 py-1.5 text-center font-bold">ID No.</th>
+              <th className="border border-slate-600 px-3 py-1.5 text-center font-bold">Class Code</th>
+              <th className="border border-slate-600 px-3 py-1.5 text-center font-bold">Student Name</th>
+              <th className="border border-slate-600 px-3 py-1.5 text-center font-bold">Email</th>
+              <th className="border border-slate-600 px-3 py-1.5 text-center font-bold w-28">Status</th>
+              <th className="border border-slate-600 px-3 py-1.5 text-center font-bold w-10"></th>
             </tr>
           </thead>
           <tbody>
             {editableRows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="border border-slate-300 px-3 py-6 text-center text-xs text-muted-foreground">
+                <td colSpan={7} className="border border-slate-300 px-3 py-6 text-center text-xs text-muted-foreground">
                   Paste or type student data in the text area below to populate the table, or use the inputs above to add rows manually.
                 </td>
               </tr>
             ) : (
               editableRows.map((r, idx) => (
-<tr
-                   key={`${r.idNo}-${r.classCode}-${idx}`}
-                   onPaste={(e) => handleRowPaste(e, idx)}
-                 >
+                <tr
+                  key={`${r.idNo}-${r.classCode}-${idx}`}
+                  onPaste={(e) => handleRowPaste(e, idx)}
+                >
                   <td className="border border-slate-300 px-3 py-1.5 text-center font-mono text-muted-foreground font-medium bg-slate-100">
                     {idx + 1}
                   </td>
-                  <td className="border border-slate-300 px-3 py-1.5">
+                  <td className="border border-slate-300 px-0 py-1 bg-white">
                     <input
                       type="text"
-                      className="w-full bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-sm px-1 py-0.5 font-mono text-sm"
+                      className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-none px-3 py-1.5 font-mono text-sm text-slate-900"
                       value={r.idNo}
                       onChange={(e) => handleEditableRowChange(idx, "idNo", e.target.value)}
                       placeholder="101"
                     />
                   </td>
-                  <td className="border border-slate-300 px-3 py-1.5">
+                  <td className="border border-slate-300 px-0 py-1 bg-white">
                     <input
                       type="text"
-                      className="w-full bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-sm px-1 py-0.5 text-sm"
+                      className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-none px-3 py-1.5 font-mono text-sm text-slate-900"
                       value={r.classCode}
                       onChange={(e) => handleEditableRowChange(idx, "classCode", e.target.value)}
                       placeholder="A-101"
                     />
                   </td>
-                  <td className="border border-slate-300 px-3 py-1.5">
+                  <td className="border border-slate-300 px-0 py-1 bg-white">
                     <input
                       type="text"
-                      className="w-full bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-sm px-1 py-0.5 text-sm"
+                      className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-none px-3 py-1.5 text-sm text-slate-900"
                       value={r.studentName}
                       onChange={(e) => handleEditableRowChange(idx, "studentName", e.target.value)}
                       placeholder="John Doe"
                     />
                   </td>
-                  <td className="border border-slate-300 px-3 py-1.5">
+                  <td className="border border-slate-300 px-0 py-1 bg-white">
                     <input
                       type="text"
-                      className="w-full bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-sm px-1 py-0.5 text-sm"
+                      className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-none px-3 py-1.5 text-sm text-slate-900"
                       value={r.email}
                       onChange={(e) => handleEditableRowChange(idx, "email", e.target.value)}
                       placeholder="john@example.com"
                     />
                   </td>
-                  <td className="border border-slate-300 px-3 py-1.5 text-center">
+                  <td className="border border-slate-300 px-0 py-1 bg-white">
+                    <select
+                      value={r.status}
+                      onChange={(e) => handleEditableRowChange(idx, "status", e.target.value)}
+                      className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-none px-3 py-1.5 text-sm text-slate-900 cursor-pointer"
+                    >
+                      <option value="present">Present</option>
+                      <option value="absent">Absent</option>
+                      <option value="late">Late</option>
+                      <option value="excused">Excused</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                  </td>
+                  <td className="border border-slate-300 px-3 py-1.5 text-center bg-white">
                     <button
                       type="button"
                       onClick={() => removeEditableRow(idx)}
@@ -279,7 +294,7 @@ const newRows = lines.map((line) => {
         </table>
       </div>
 
-<div className="flex items-center justify-between border-t border-slate-300 p-3 bg-slate-50">
+      <div className="flex items-center justify-between border-t border-slate-300 p-3 bg-slate-50">
          <div className="flex items-center gap-2">
            <div className="text-xs text-muted-foreground">
              Format: <span className="font-medium">ID No.,Class,Student Name,Email</span> (one per line)
@@ -308,9 +323,9 @@ const newRows = lines.map((line) => {
         </Button>
       </div>
 
-      <div className="p-3 border-t border-slate-300 bg-slate-50">
+      <div className="p-3 border-t border-slate-300">
         <textarea
-          className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-blue-500/50 hover:bg-yellow-50/30"
           placeholder={`101,A-101,John Doe,john@example.com\n102,B-102,Jane Doe,jane@example.com`}
           value={bulkStudentsText}
           onChange={(e) => setBulkStudentsText(e.target.value)}
@@ -613,55 +628,68 @@ if (res.ok) {
           </Card>
         </div>
 
-        <Card className="p-6">
-          <div className="space-y-3 max-h-[500px] overflow-y-auto">
-            {editMembers.map((member, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between p-3 border rounded-lg"
-              >
-                <div>
-                  <p className="font-medium">{member.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {member.studentId}
-                  </p>
-                </div>
-<div className="flex gap-1">
-                   {(["present", "absent", "late", "excused", "suspended"] as const).map(
-                     (status) => (
-<Button
-                         key={status}
-                         variant={
-                           member.status === status ? "default" : "outline"
-                         }
-                         size="sm"
-                         onClick={() => handleStatusChange(idx, status)}
+         <Card className="p-6">
+           <div className="overflow-x-auto">
+             <table className="w-full border-collapse text-sm">
+               <thead>
+                 <tr className="bg-slate-200 text-slate-800">
+                   <th className="border border-slate-300 px-3 py-1.5 text-center font-bold w-12">#</th>
+                   <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">Student ID</th>
+                   <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">Student Name</th>
+                   <th className="border border-slate-300 px-3 py-1.5 text-center font-bold">Status</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {editMembers.map((member, idx) => (
+                   <tr key={idx}>
+                     <td className="border border-slate-300 px-3 py-1.5 text-center font-mono text-muted-foreground font-medium bg-slate-100">
+                       {idx + 1}
+                     </td>
+                     <td className="border border-slate-300 px-0 py-1 bg-white">
+                       <input
+                         type="text"
+                         className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-none px-3 py-1.5 font-mono text-sm text-slate-900"
+                         value={member.studentId}
+                         onChange={(e) => {
+                           const updated = [...editMembers];
+                           updated[idx] = { ...updated[idx], studentId: e.target.value };
+                           setEditMembers(updated);
+                         }}
+                         placeholder="Student ID"
+                       />
+                     </td>
+                     <td className="border border-slate-300 px-0 py-1 bg-white">
+                       <input
+                         type="text"
+                         className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-none px-3 py-1.5 text-sm text-slate-900"
+                         value={member.name}
+                         onChange={(e) => {
+                           const updated = [...editMembers];
+                           updated[idx] = { ...updated[idx], name: e.target.value };
+                           setEditMembers(updated);
+                         }}
+                         placeholder="Student Name"
+                       />
+                     </td>
+                     <td className="border border-slate-300 px-0 py-1 bg-white">
+                       <select
+                         value={member.status || "absent"}
+                         onChange={(e) => handleStatusChange(idx, e.target.value as AttendanceStatus)}
+                         className="w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-none px-3 py-1.5 text-sm text-slate-900 cursor-pointer"
                        >
-                         {status === "present" && (
-                           <CheckCircle className="size-4" />
-                         )}
-                         {status === "absent" && (
-                           <AlertCircle className="size-4" />
-                         )}
-                         {status === "late" && (
-                           <Clock className="size-4" />
-                         )}
-                         {status === "suspended" && (
-                           <PauseCircle className="size-4" />
-                         )}
-                         {status !== "present" &&
-                           status !== "absent" &&
-                           status !== "late" &&
-                           status !== "suspended" &&
-                           status}
-                       </Button>
-                    )
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+                         <option value="present">Present</option>
+                         <option value="absent">Absent</option>
+                         <option value="late">Late</option>
+                         <option value="excused">Excused</option>
+                         <option value="suspended">Suspended</option>
+                       </select>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+         </Card>
 
         <div className="flex gap-3">
           <Button
@@ -720,7 +748,7 @@ if (res.ok) {
 <Card className="space-y-4 p-5 xl:col-span-2">
           <h3 className="text-sm font-semibold">Create Attendance Draft</h3>
           <p className="text-xs text-muted-foreground">
-            Enter student data in the table below. Columns: ID No., Class, Student Name, Email
+            Enter student data in the table below. Columns: ID No., Class Code, Student Name, Email, Status
           </p>
           {renderEditableTable()}
           <Button
@@ -728,7 +756,7 @@ if (res.ok) {
               if (editableRows.length === 0) return alert("Enter at least one student row");
               const members = editableRows
                 .filter(r => r.idNo && r.classCode && r.studentName && r.email)
-                .map(r => ({ studentId: r.idNo, name: r.studentName, email: r.email }));
+                .map(r => ({ studentId: r.idNo, name: r.studentName, email: r.email, status: r.status }));
               if (members.length === 0) return alert("Enter valid student data");
               setCreating(true);
               try {
@@ -738,6 +766,7 @@ if (res.ok) {
                   body: JSON.stringify({
                     title: newTitle || "Attendance draft",
                     classId: null,
+                    facilitatorId: null,
                     members,
                   }),
                 });
@@ -791,18 +820,19 @@ if (res.ok) {
                   if (editableRows.length === 0) return alert("Enter at least one student row");
                   const members = editableRows
                     .filter(r => r.idNo && r.classCode && r.studentName && r.email)
-                    .map(r => ({ studentId: r.idNo, name: r.studentName, email: r.email }));
+                    .map(r => ({ studentId: r.idNo, name: r.studentName, email: r.email, status: r.status }));
                   if (members.length === 0) return alert("Enter valid student data");
                   setCreating(true);
                   try {
                     const res = await fetch("/api/attendance/drafts", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        title: newTitle || "Attendance draft",
-                        classId: null,
-                        members,
-                      }),
+                    body: JSON.stringify({
+                      title: newTitle || "Attendance draft",
+                      classId: null,
+                      facilitatorId: null,
+                      members,
+                    }),
                     });
                     if (res.ok) {
                       alert("Draft created and sent");

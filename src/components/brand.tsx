@@ -11,6 +11,7 @@ export function Logo({ className }: { className?: string }) {
           fill
           className="object-contain"
           priority
+          sizes="36px"
         />
       </div>
       <div className="leading-tight">
