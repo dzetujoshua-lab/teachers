@@ -5,7 +5,7 @@ import {
   FIREBASE_SESSION_COOKIE,
   USE_MOCK,
 } from "./config";
-import type { Person, Role } from "@/lib/types";
+import type { Role } from "@/lib/types";
 
 export interface FirebaseProfile {
   id: string;
@@ -61,122 +61,203 @@ export async function getFirebaseAdminDb() {
   return firestoreModule.getFirestore(app);
 }
 
-const profileCache = new Map<string, { profile: FirebaseProfile | null; expiresAt: number }>();
+const profileCache = new Map<
+  string,
+  { profile: FirebaseProfile | null; expiresAt: number }
+>();
 
-export async function getProfileBySession(cookies: { get(name: string): { value: string } | undefined }): Promise<FirebaseProfile | null> {
-  const auth = await getFirebaseAdminAuth();
-  const db = await getFirebaseAdminDb();
-  const token = cookies.get(FIREBASE_SESSION_COOKIE)?.value;
+const quotaExhaustedUntil = { value: 0 };
+const QUOTA_COOLDOWN_MS = 2 * 60_000; // longer cooldown to absorb bursts
 
-  if (!auth || !db || !token) return null;
+function isQuotaExhausted(): boolean {
+  return Date.now() < quotaExhaustedUntil.value;
+}
 
-  const cached = profileCache.get(token);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.profile;
+function markQuotaExhausted(): void {
+  quotaExhaustedUntil.value = Date.now() + QUOTA_COOLDOWN_MS;
+}
+
+function isQuotaError(err: any): boolean {
+  const code = String(err?.code ?? "").toUpperCase();
+  return code === "RESOURCE_EXHAUSTED" || err?.code === 8;
+}
+
+const PROFILE_CACHE_TTL_MS = 5 * 60_000; // 5 minutes
+
+// Prevent request stampedes: one in-flight lookup per token.
+// Also bounds memory growth by trimming cache after insertions.
+const inFlightByToken = new Map<string, Promise<FirebaseProfile | null>>();
+const MAX_PROFILE_CACHE_ENTRIES = 10_000;
+
+function trimProfileCacheIfNeeded() {
+  if (profileCache.size <= MAX_PROFILE_CACHE_ENTRIES) return;
+  // Simple LRU-ish trim: Map keeps insertion order.
+  const excess = profileCache.size - MAX_PROFILE_CACHE_ENTRIES;
+  let remaining = excess;
+  for (const key of profileCache.keys()) {
+    profileCache.delete(key);
+    remaining -= 1;
+    if (remaining <= 0) break;
   }
+}
 
-  let decoded;
+export async function getProfileBySession(
+  cookies: { get(name: string): { value: string } | undefined }
+): Promise<FirebaseProfile | null> {
+  const token = cookies.get(FIREBASE_SESSION_COOKIE)?.value;
+  if (!token) return null;
 
-  // Determine token type by decoding JWT payload (unverified) and checking `iss` claim.
-  // ID tokens:  https://securetoken.google.com/<PROJECT_ID>
-  // Session cookies: https://session.firebase.google.com/<PROJECT_ID>
-  try {
-    const parts = token.split(".");
-
-    // JWT payload is base64url encoded, not base64.
-    // base64url -> base64 conversion with padding.
-    const decodeBase64Url = (base64Url: string) => {
-      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-      const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
-      return Buffer.from(padded, "base64").toString("utf8");
-    };
-
-    let iss = "";
-    if (parts.length === 3) {
-      try {
-        const payload = JSON.parse(decodeBase64Url(parts[1]));
-        iss = String(payload?.iss || "");
-      } catch {
-        iss = "";
-      }
-    }
-
-    const verifyIdToken = () => auth.verifyIdToken(token);
-    const verifySession = () => auth.verifySessionCookie(token, true);
-
-    // IMPORTANT: Do not fall back from session-cookie verification to ID-token verification.
-    // If `iss` indicates a session cookie, the token will always have session issuer and
-    // verifyIdToken will fail with an issuer mismatch.
-    if (iss.startsWith("https://session.firebase.google.com/")) {
-      try {
-        decoded = await verifySession();
-      } catch (e) {
-        console.debug("verifySessionCookie failed:", (e as Error)?.message ?? e);
-        return null;
-      }
-    } else if (iss.startsWith("https://securetoken.google.com/")) {
-      try {
-        decoded = await verifyIdToken();
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn("verifyIdToken failed:", (e as Error)?.message ?? e);
-        return null;
-      }
-    } else {
-      // Unknown issuer: try session cookie first, then ID token (last resort)
-      // eslint-disable-next-line no-console
-      console.warn("Unknown Firebase token issuer detected:", iss);
-      try {
-        decoded = await verifySession();
-      } catch {
-        try {
-          decoded = await verifyIdToken();
-        } catch (e2) {
-          // eslint-disable-next-line no-console
-          console.warn("Token verification failed (unknown issuer):", (e2 as Error)?.message ?? e2);
-          return null;
-        }
-      }
-    }
-  } catch (err) {
-    // If verification failed for both methods, log and return null so callers can handle unauthenticated state
-    // eslint-disable-next-line no-console
-    console.error("Firebase token verification failed:", err);
+  // If we've recently hit Firebase quota limits, skip expensive work.
+  if (isQuotaExhausted()) {
     return null;
   }
 
-  if (!decoded) return null;
-
-  let snapshot;
-  try {
-    snapshot = await db.collection("profiles").doc(decoded.uid).get();
-  } catch (err: any) {
-    const code = (err?.code || "").toUpperCase();
-    if (code === "RESOURCE_EXHAUSTED" || err?.code === 8) {
-      console.error("Firebase quota exceeded:", err);
-      return null;
-    }
-    throw err;
+  // Reuse cached profile for this token (avoids verification + Firestore read).
+  const cached = profileCache.get(token);
+  if (cached?.expiresAt && Date.now() < cached.expiresAt) {
+    return cached.profile;
   }
 
-  const data = snapshot.data() as Omit<FirebaseProfile, "id"> | undefined;
+  // If a refresh is already in-flight for this token, await it.
+  const existing = inFlightByToken.get(token);
+  if (existing) return existing;
 
-  if (!data?.role) return null;
+  const lookupPromise = (async () => {
+    const auth = await getFirebaseAdminAuth();
+    const db = await getFirebaseAdminDb();
+    if (!auth || !db) return null;
 
-  const profile = {
-    id: decoded.uid,
-    uid: data.uid ?? decoded.uid,
-    platformUserId: data.platformUserId,
-    email: decoded.email ?? data.email,
-    name: data.name ?? decoded.name ?? decoded.email ?? "Campus User",
-    role: data.role,
-    department: data.department,
-    institutionId: data.institutionId,
-    avatarColor: data.avatarColor ?? "#c52a58",
-    forcePasswordReset: Boolean(data.forcePasswordReset),
-  } satisfies FirebaseProfile;
+    let decoded: any;
 
-  profileCache.set(token, { profile, expiresAt: Date.now() + 60000 });
-  return profile;
+    // Determine token type by decoding JWT payload (unverified) and checking `iss` claim.
+    // ID tokens:  https://securetoken.google.com/<PROJECT_ID>
+    // Session cookies: https://session.firebase.google.com/<PROJECT_ID>
+    try {
+      const parts = token.split(".");
+
+      // JWT payload is base64url encoded, not base64.
+      // base64url -> base64 conversion with padding.
+      const decodeBase64Url = (base64Url: string) => {
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = base64.padEnd(
+          base64.length + ((4 - (base64.length % 4)) % 4),
+          "="
+        );
+        return Buffer.from(padded, "base64").toString("utf8");
+      };
+
+      let iss = "";
+      if (parts.length === 3) {
+        try {
+          const payload = JSON.parse(decodeBase64Url(parts[1]));
+          iss = String(payload?.iss || "");
+        } catch {
+          iss = "";
+        }
+      }
+
+      const verifyIdToken = () => auth.verifyIdToken(token);
+      const verifySession = () => auth.verifySessionCookie(token, true);
+
+      if (iss.startsWith("https://session.firebase.google.com/")) {
+        try {
+          decoded = await verifySession();
+        } catch (e: any) {
+          if (isQuotaError(e)) markQuotaExhausted();
+          console.debug(
+            "verifySessionCookie failed:",
+            (e as Error)?.message ?? e
+          );
+          return null;
+        }
+      } else if (iss.startsWith("https://securetoken.google.com/")) {
+        try {
+          decoded = await verifyIdToken();
+        } catch (e: any) {
+          if (isQuotaError(e)) markQuotaExhausted();
+          console.warn(
+            "verifyIdToken failed:",
+            (e as Error)?.message ?? e
+          );
+          return null;
+        }
+      } else {
+        console.warn("Unknown Firebase token issuer detected:", iss);
+        try {
+          decoded = await verifySession();
+        } catch (e: any) {
+          if (isQuotaError(e)) markQuotaExhausted();
+          try {
+            decoded = await verifyIdToken();
+          } catch (e2: any) {
+            if (isQuotaError(e2)) markQuotaExhausted();
+            console.warn(
+              "Token verification failed (unknown issuer):",
+              (e2 as Error)?.message ?? e2
+            );
+            return null;
+          }
+        }
+      }
+    } catch (err: any) {
+      if (isQuotaError(err)) markQuotaExhausted();
+      console.error("Firebase token verification failed:", err);
+      return null;
+    }
+
+    if (!decoded) return null;
+
+    let snapshot;
+    try {
+      snapshot = await db.collection("profiles").doc(decoded.uid).get();
+    } catch (err: any) {
+      if (isQuotaError(err)) {
+        console.error("Firebase quota exceeded:", err);
+        markQuotaExhausted();
+        return null;
+      }
+      throw err;
+    }
+
+    const data = snapshot.data() as Omit<FirebaseProfile, "id"> | undefined;
+
+    if (!data?.role) {
+      // Cache negative lookups too; prevents hammering Firestore.
+      profileCache.set(token, {
+        profile: null,
+        expiresAt: Date.now() + PROFILE_CACHE_TTL_MS,
+      });
+      return null;
+    }
+
+    const profile = {
+      id: decoded.uid,
+      uid: data.uid ?? decoded.uid,
+      platformUserId: data.platformUserId,
+      email: decoded.email ?? data.email,
+      name: data.name ?? decoded.name ?? decoded.email ?? "Campus User",
+      role: data.role,
+      department: data.department,
+      institutionId: data.institutionId,
+      avatarColor: data.avatarColor ?? "#c52a58",
+      forcePasswordReset: Boolean(data.forcePasswordReset),
+    } satisfies FirebaseProfile;
+
+    profileCache.set(token, {
+      profile,
+      expiresAt: Date.now() + PROFILE_CACHE_TTL_MS,
+    });
+    trimProfileCacheIfNeeded();
+
+    return profile;
+  })();
+
+  inFlightByToken.set(token, lookupPromise);
+
+  try {
+    return await lookupPromise;
+  } finally {
+    inFlightByToken.delete(token);
+  }
 }
 

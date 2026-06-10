@@ -1,8 +1,5 @@
-# TODO - Fix Admin Draft "New Draft" table UI
-
-## Steps
-- [ ] Update `src/components/dashboards/admin-drafts.tsx`: replace the placeholder bulk UI + checkbox list with a table-like bulk entry area (paste lines: studentId, classCode/class, name, email) and parse into draft members.
-- [ ] Wire parsed rows into the create handler so `members` are created from the table input.
-- [ ] Remove/ignore unused placeholder sections that claim "Use New Draft" but show no table.
-- [ ] Run typecheck/lint/build if available.
+- [x] Inspect `teachers/src/lib/firebase/admin.ts` for current quota handling + caching behavior
+- [x] Implement mitigation: broaden quota cooldown, improve token/profile caching (including null), and dedupe in-flight lookups
+- [x] Fix TypeScript errors introduced during edits
+- [ ] Restart Next dev server and verify `RESOURCE_EXHAUSTED` no longer triggers repeatedly
 

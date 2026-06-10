@@ -51,6 +51,18 @@ export async function getFirebaseAdminDb() {
   return firestoreModule.getFirestore(app);
 }
 
+const profileCache = new Map<string, { profile: FirebaseProfile | null; expiresAt: number }>();
+const quotaExhaustedUntil = { value: 0 };
+const QUOTA_COOLDOWN_MS = 30_000;
+
+function isQuotaExhausted(): boolean {
+  return Date.now() < quotaExhaustedUntil.value;
+}
+
+function markQuotaExhausted(): void {
+  quotaExhaustedUntil.value = Date.now() + QUOTA_COOLDOWN_MS;
+}
+
 export async function getProfileBySession(cookies: { get(name: string): { value: string } | undefined }) {
   const auth = await getFirebaseAdminAuth();
   const db = await getFirebaseAdminDb();
@@ -58,19 +70,37 @@ export async function getProfileBySession(cookies: { get(name: string): { value:
 
   if (!auth || !db || !token) return null;
 
+  if (isQuotaExhausted()) return null;
+
+  const cached = profileCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) return cached.profile;
+
   const decoded = await auth.verifyIdToken(token);
-  const snapshot = await db.collection("profiles").doc(decoded.uid).get();
-  const data = snapshot.data() as Omit<FirebaseProfile, "id"> | undefined;
+  try {
+    const snapshot = await db.collection("profiles").doc(decoded.uid).get();
+    const data = snapshot.data() as Omit<FirebaseProfile, "id"> | undefined;
 
-  if (!data?.role) return null;
+    if (!data?.role) return null;
 
-  return {
-    id: decoded.uid,
-    email: decoded.email ?? data.email,
-    name: data.name ?? decoded.name ?? decoded.email ?? "Campus User",
-    role: data.role,
-    department: data.department,
-    avatarColor: data.avatarColor ?? "#c52a58",
-    forcePasswordReset: Boolean(data.forcePasswordReset),
-  } satisfies Person & { forcePasswordReset: boolean };
+    const profile = {
+      id: decoded.uid,
+      email: decoded.email ?? data.email,
+      name: data.name ?? decoded.name ?? decoded.email ?? "Campus User",
+      role: data.role,
+      department: data.department,
+      avatarColor: data.avatarColor ?? "#c52a58",
+      forcePasswordReset: Boolean(data.forcePasswordReset),
+    } satisfies Person & { forcePasswordReset: boolean };
+
+    profileCache.set(token, { profile, expiresAt: Date.now() + 60000 });
+    return profile;
+  } catch (err: any) {
+    const code = String(err?.code ?? "").toUpperCase();
+    if (code === "RESOURCE_EXHAUSTED" || err?.code === 8) {
+      console.error("Firebase quota exceeded:", err);
+      markQuotaExhausted();
+      return null;
+    }
+    throw err;
+  }
 }
