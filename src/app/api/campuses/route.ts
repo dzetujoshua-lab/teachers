@@ -55,3 +55,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const profile = await getProfileBySession(await cookies());
+    if (!profile || profile.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { campusId } = body;
+
+    if (!campusId) {
+      return NextResponse.json({ error: 'Campus ID is required.' }, { status: 400 });
+    }
+
+    const db = await getFirebaseAdminDb();
+    if (!db) return NextResponse.json({ error: 'Firebase Admin is not configured.' }, { status: 500 });
+
+    await db.collection('campuses').doc(campusId).delete();
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Campus deletion error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

@@ -111,9 +111,29 @@ export interface NotificationItem {
   id: string;
   title: string;
   body: string;
-  type: "attendance" | "meal" | "security" | "schedule" | "system";
+  type: "attendance" | "meal" | "security" | "schedule" | "system" | "message";
   time: string;
   read: boolean;
+  senderName: string;
+  senderAvatarColor: string;
+  online: boolean;
+  conversationId?: string;
+  conversation?: ConversationData;
+  chatHistory?: ChatMessage[];
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatarColor: string;
+  text: string;
+  time: string;
+  isIncoming: boolean;
+}
+
+export interface ConversationData {
+  participants: { id: string; name: string; avatarColor: string; online: boolean }[];
 }
 
 export interface AttendanceDraft {

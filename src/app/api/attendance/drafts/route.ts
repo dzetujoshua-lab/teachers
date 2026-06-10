@@ -19,10 +19,12 @@ export async function GET(request: Request) {
 
     if (profile.role === "facilitator") {
       q = q.where("facilitatorId", "==", profile.id);
+      const statusFilter = url.searchParams.get("status");
       if (!statusFilter || statusFilter === "draft") {
         q = q.where("status", "==", "draft");
       }
     } else if (profile.role === "super_admin") {
+      const statusFilter = url.searchParams.get("status");
       if (statusFilter) {
         q = q.where("status", "==", statusFilter);
       }

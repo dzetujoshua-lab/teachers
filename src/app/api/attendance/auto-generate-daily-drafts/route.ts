@@ -60,9 +60,10 @@ export async function POST(request: Request) {
       const classCode = cls.code || "CLS";
       const className = cls.name || "Class";
       const facilitatorId = cls.facilitatorId;
-      const members = cls.members || [];
+      const rawMembers = cls.members || [];
 
-      if (!facilitatorId || members.length === 0) continue;
+      if (!facilitatorId || !Array.isArray(rawMembers) || rawMembers.length === 0) continue;
+
 
       // Check if class is active
       if (cls.status === "inactive" || cls.archived) continue;
@@ -81,13 +82,27 @@ export async function POST(request: Request) {
         continue;
       }
 
+      const members = rawMembers
+        .filter((m: any) => m && typeof m === "object")
+        .map((m: any) => {
+          const studentId = String(m.studentId ?? m.id ?? "").trim();
+          const name = String(m.name ?? "Student").trim();
+          return { studentId, name };
+        })
+        .filter((m: any) => m.studentId.length > 0 && m.name.length > 0);
+
+      if (members.length === 0) {
+        console.warn(`Auto-generate: no valid members for class ${classId}`);
+        continue;
+      }
+
       const draft = {
         title: `${classCode} - ${className} Daily Attendance`,
         classId,
         facilitatorId,
         members: members.map((m: any) => ({
-          studentId: m.studentId || m.id,
-          name: m.name || "Student",
+          studentId: m.studentId,
+          name: m.name,
           status: "absent" as const,
         })),
         status: "draft" as const,

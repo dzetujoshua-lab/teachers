@@ -231,6 +231,7 @@ export default function RoleLoginPage({ params }: RoleLoginPageProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              showPasswordToggle
             />
             {mode === "register" && (
               <Input
@@ -239,6 +240,7 @@ export default function RoleLoginPage({ params }: RoleLoginPageProps) {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                showPasswordToggle
               />
             )}
             {error && <p className="text-xs text-red-400">{error}</p>}

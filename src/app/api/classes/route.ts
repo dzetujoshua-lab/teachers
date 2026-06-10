@@ -2,6 +2,31 @@ import { NextResponse } from 'next/server';
 import { getFirebaseAdminDb, getProfileBySession } from '@/lib/firebase/admin';
 import { cookies } from 'next/headers';
 
+export async function DELETE(request: Request) {
+  try {
+    const profile = await getProfileBySession(await cookies());
+    if (!profile || profile.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { classId } = body;
+
+    if (!classId) {
+      return NextResponse.json({ error: 'Class ID is required.' }, { status: 400 });
+    }
+
+    const db = await getFirebaseAdminDb();
+    if (!db) return NextResponse.json({ error: 'Firebase Admin is not configured.' }, { status: 500 });
+
+    await db.collection('classes').doc(classId).delete();
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Class deletion error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const facilitatorId = url.searchParams.get('facilitatorId');

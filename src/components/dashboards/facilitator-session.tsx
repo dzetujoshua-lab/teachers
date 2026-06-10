@@ -86,6 +86,14 @@ export function FacilitatorSession() {
     };
 
     loadAssignedDraft();
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadAssignedDraft();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   React.useEffect(() => {

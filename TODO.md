@@ -1,11 +1,10 @@
-# TODO
+# TODO — Performance / SEO / Accessibility Optimization
 
-## Admin notification appearance (UI polish)
+## Step 1: Baseline discovery
+- [ ] Verify which app is production target (user said proceed; treat both as candidates).
+- [ ] Run search for heavy client components (charts/live-feed/modals).
+- [ ] Identify any missing SEO primitives (robots/sitemap/OpenGraph/twitter/canonical).
 
-- [x] Inspect notification UI components (dropdown + modal)
-- [x] Update `src/components/shell/topbar.tsx` dropdown styling (spacing, truncation, unread emphasis)
-- [x] Update `src/components/shell/notification-details-modal.tsx` modal hierarchy + payload readability
-- [ ] Sanity check TypeScript/TSX compile (separate existing typecheck failure noted in build output)
-- [ ] Run dev/build to verify visual behavior
-
-
+## Step 2: Performance (runtime)
+- [ ] Remove `suppressHydrationWarning` if safe; otherwise fix hydration root cause.
+- [ ] Convert unnecessary `

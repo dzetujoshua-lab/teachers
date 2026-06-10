@@ -81,7 +81,6 @@ export function createMockUser(input: {
     password: input.password,
     platformUserId,
     createdAt: new Date().toISOString(),
-    avatarColor,
   };
 
   return { uid, platformUserId };

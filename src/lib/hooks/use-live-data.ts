@@ -18,7 +18,7 @@ export function useLiveData<T>(
   lastUpdated: Date | null;
   refetch: () => void;
 } {
-  const { pollInterval = 5000, enabled = true, immediate = true } = options;
+  const { pollInterval = 30000, enabled = true, immediate = true } = options;
   const [data, setData] = React.useState<T | null>(null);
   const [loading, setLoading] = React.useState(immediate);
   const [error, setError] = React.useState<string | null>(null);
@@ -26,7 +26,7 @@ export function useLiveData<T>(
 
   const fetchData = React.useCallback(async () => {
     if (!url || !enabled) return;
-    
+
     try {
       setLoading(true);
       setError(null);
@@ -43,12 +43,26 @@ export function useLiveData<T>(
   }, [url, enabled]);
 
   React.useEffect(() => {
+    if (!enabled) return;
+
     fetchData();
-    
-    if (!enabled || !pollInterval) return;
-    
+
+    if (!pollInterval) return;
+
     const interval = setInterval(fetchData, pollInterval);
-    return () => clearInterval(interval);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchData();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [fetchData, enabled, pollInterval]);
 
   return { data, loading, error, lastUpdated, refetch: fetchData };

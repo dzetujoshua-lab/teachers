@@ -87,6 +87,7 @@ export default function ChangePasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              showPasswordToggle
             />
             <Input
               type="password"
@@ -94,6 +95,7 @@ export default function ChangePasswordPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              showPasswordToggle
             />
             {error && <p className="text-sm text-red-400">{error}</p>}
             {success && <p className="text-sm text-emerald-400">{success}</p>}

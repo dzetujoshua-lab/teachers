@@ -172,6 +172,40 @@ if (res.ok) {
     }
   };
 
+  const handleSendToFacilitator = async () => {
+    if (!selectedDraft) return;
+
+    setSendingToKitchen(true);
+    try {
+      const res = await fetch("/api/attendance/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: selectedDraft.title,
+          classId: selectedDraft.classId || null,
+          facilitatorId: selectedDraft.facilitatorId,
+          members: selectedDraft.members.map((m) => ({
+            studentId: m.studentId,
+            name: m.name,
+          })),
+        }),
+      });
+
+      const result = await res.json().catch(() => ({}));
+      if (res.ok) {
+        alert("Draft sent/assigned to facilitator successfully");
+        setSelectedDraft(null);
+      } else {
+        alert(result.error || "Failed to send draft to facilitator");
+      }
+    } catch (err) {
+      console.error("Error sending to facilitator:", err);
+      alert("Error sending to facilitator");
+    } finally {
+      setSendingToKitchen(false);
+    }
+  };
+
   const handleCreateCampus = async () => {
     if (!newCampus.name.trim()) {
       alert("Campus name is required");
@@ -272,31 +306,6 @@ if (res.ok) {
     }
   };
 
-  const handleSendToFacilitator = async (cls: any) => {
-    try {
-      const res = await fetch("/api/attendance/drafts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: `${cls.code} - ${cls.name}`,
-          classId: cls.id,
-          facilitatorId: cls.facilitatorId,
-          members: cls.members || [],
-        }),
-      });
-      const result = await res.json();
-
-      if (res.ok) {
-        alert(`Class ${cls.code} sent to facilitator successfully`);
-      } else {
-        alert(result.error || "Failed to send class to facilitator");
-      }
-    } catch (err) {
-      console.error("Error sending class:", err);
-      alert("Error sending class to facilitator");
-    }
-  };
-
   if (selectedDraft) {
     const presentCount = editMembers.filter((m) => m.status === "present").length;
     const absentCount = editMembers.filter((m) => m.status === "absent").length;
@@ -394,6 +403,15 @@ if (res.ok) {
             className="flex-1"
           >
             <Save className="size-4" /> Save & Approve
+          </Button>
+          <Button
+            onClick={handleSendToFacilitator}
+            disabled={sendingToKitchen}
+            size="lg"
+            className="flex-1"
+            variant="outline"
+          >
+            <Send className="size-4" /> {sendingToKitchen ? "Sending..." : "Send to Facilitator"}
           </Button>
           <Button
             onClick={handleSendToKitchen}

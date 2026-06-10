@@ -241,6 +241,8 @@ export function RoleLoginClient({ role }: RoleLoginClientProps) {
           email: email.toLowerCase().trim(),
           role,
           name: name.trim(),
+          password: "",
+          createdAt: new Date().toISOString(),
         };
         const token = createMockSession(mockUser);
         await mockCreateSession(token);
@@ -410,6 +412,7 @@ export function RoleLoginClient({ role }: RoleLoginClientProps) {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={loading}
+              showPasswordToggle
             />
             {mode === "signup" && (
               <Input
@@ -419,6 +422,7 @@ export function RoleLoginClient({ role }: RoleLoginClientProps) {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={loading}
+                showPasswordToggle
               />
             )}
             {error && <p className="text-xs text-red-400">{error}</p>}

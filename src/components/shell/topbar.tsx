@@ -4,10 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 
 const OPEN_PALETTE_EVENT = "smartcampus:open-palette";
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import type { Role, Person } from "@/lib/types";
 import { relativeTime } from "@/lib/utils";
 import { NotificationDetailsModal } from "@/components/shell/notification-details-modal";
@@ -134,101 +136,28 @@ export function Topbar({ role }: { role: Role }) {
         </div>
 
         <div className="relative">
-          <button
-            onClick={() => setNotifOpen((o) => !o)}
-            className="relative grid h-10 w-10 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label="Notifications"
-            aria-expanded={notifOpen}
-          >
-            <Bell className="size-[18px]" />
-            {unread > 0 && (
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-wine-500 ring-2 ring-background" />
-            )}
-          </button>
-
+          <NotificationBell unreadCount={unread} onClick={() => setNotifOpen((o) => !o)} />
           {notifOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-
-              <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
-                <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                  <p className="text-sm font-semibold">Notifications</p>
-                  <Badge variant="wine">{unread} new</Badge>
-                </div>
-
-                <div className="max-h-80 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="px-4 py-4 text-xs text-muted-foreground">No notifications.</div>
-                  ) : (
-                    notifications.map((n) => (
-                      <button
-                        key={n.id}
-                        type="button"
-                        onClick={async () => {
-                          setNotifOpen(false);
-                          setDetailsOpen(true);
-                          setDetailsLoading(true);
-                          setDetailsError(null);
-                          setNotificationDetails(null);
-
-                          if (!n.read) {
-                            setNotifications((prev) =>
-                              prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
-                            );
-
-                            try {
-                              await fetch(`/api/admin/notifications/${n.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ read: true }),
-                              });
-                            } catch (e) {
-                              console.error("Failed to mark notification read:", e);
-                            }
-                          }
-
-                          try {
-                            const res = await fetch(`/api/admin/notifications/${n.id}`);
-                            if (!res.ok) {
-                              throw new Error(`Failed to load notification (${res.status})`);
-                            }
-                            const data = await res.json();
-                            setNotificationDetails(data?.notification ?? null);
-                          } catch (e: any) {
-                            setDetailsError(e?.message || "Failed to load details");
-                          } finally {
-                            setDetailsLoading(false);
-                          }
-                        }}
-                        className={
-                          "group relative flex w-full items-start gap-3 border-b border-border/60 px-4 py-3 text-left text-sm last:border-0 transition-colors hover:bg-accent/50" +
-                          (!n.read
-                            ? " before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-wine-500"
-                            : "")
-                        }
-                      >
-                        <div className="mt-1">
-                          {!n.read && (
-                            <span className="inline-block h-2 w-2 rounded-full bg-wine-500 ring-2 ring-background" />
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{n.title}</p>
-                          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
-                          <p className="mt-1 text-[10px] text-muted-foreground">{relativeTime(n.time)}</p>
-                        </div>
-
-                        <div className="mt-1 opacity-0 transition-opacity group-hover:opacity-100">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-card/40 text-[10px] text-muted-foreground">
-                            View
-                          </span>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
+              <NotificationPanel
+                notifications={notifications}
+                onClose={() => setNotifOpen(false)}
+                onSelectNotification={(n: any) => {
+                  setNotifOpen(false);
+                  setDetailsOpen(true);
+                  setDetailsLoading(true);
+                  setDetailsError(null);
+                  setNotificationDetails(null);
+                  if (!n.read) {
+                    setNotifications((prev) =>
+                      prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
+                    );
+                  }
+                  setNotificationDetails(n);
+                  setDetailsLoading(false);
+                }}
+              />
             </>
           )}
         </div>

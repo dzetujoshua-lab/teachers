@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Send, X, Users, QrCode, Check, Download, Upload } from "lucide-react";
+import { Plus, Send, X, Users, QrCode, Check, Download, Upload, Trash2, Clock, Calendar, Filter } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useLiveData } from "@/lib/hooks/use-live-data";
+import type { AttendanceStatus } from "@/lib/types";
 
 interface ClassMember {
   studentId: string;
