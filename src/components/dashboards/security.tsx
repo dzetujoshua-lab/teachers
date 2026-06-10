@@ -17,20 +17,26 @@ type FraudAlert = { id: string; threat: string; severity: string; count: number 
 export function SecurityDashboard() {
    const [buildings, setBuildings] = React.useState<BuildingRow[]>([]);
 
-   const { data: auditLogsData, loading, lastUpdated } = useLiveData<{ rows: AuditRow[] }>(
-     "/api/admin/firestore?collection=auditLogs",
-     { pollInterval: 3000 }
-   );
+const { data: auditLogsData, loading, lastUpdated } = useLiveData<{ rows: AuditRow[] }>(
+      "/api/admin/firestore?collection=auditLogs",
+      { pollInterval: 60000 }
+    );
 
    const auditLogs = auditLogsData?.rows || [];
 
-   React.useEffect(() => {
-     let cancelled = false;
-     fetch("/api/admin/firestore?collection=buildings").then(r => r.json()).then((data) => {
-       if (!cancelled) setBuildings(data.rows || []);
-     }).catch(() => {});
-     return () => { cancelled = true; };
-   }, []);
+React.useEffect(() => {
+      let cancelled = false;
+      fetch("/api/admin/firestore?collection=buildings")
+        .then(r => {
+          if (!r.ok) return;
+          return r.json();
+        })
+        .then((data) => {
+          if (!cancelled && data) setBuildings(data.rows || []);
+        })
+        .catch(() => {});
+      return () => { cancelled = true; };
+    }, []);
 
    const handleReviewFraud = () => {
      window.open("/dashboard/security_officer/fraud", "_blank");

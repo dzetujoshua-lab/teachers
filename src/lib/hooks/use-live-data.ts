@@ -18,12 +18,14 @@ export function useLiveData<T>(
   error: string | null;
   lastUpdated: Date | null;
   refetch: () => void;
+  retryCount: number;
 } {
   const { pollInterval = 30000, enabled = true, immediate = true, refreshInterval = 0 } = options;
   const [data, setData] = React.useState<T | null>(null);
   const [loading, setLoading] = React.useState(immediate);
   const [error, setError] = React.useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
+  const [retryCount, setRetryCount] = React.useState(0);
 
   const fetchData = React.useCallback(async () => {
     if (!url || !enabled) return;
@@ -32,12 +34,18 @@ export function useLiveData<T>(
       setLoading(true);
       setError(null);
       const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status}${errorText ? `: ${errorText}` : ""}`);
+      }
       const result = await res.json();
       setData(result);
       setLastUpdated(new Date());
+      setRetryCount(0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch");
+      const msg = err instanceof Error ? err.message : "Failed to fetch";
+      setError(msg);
+      setRetryCount((c) => c + 1);
     } finally {
       setLoading(false);
     }
@@ -101,5 +109,5 @@ export function useLiveData<T>(
     };
   }, [fetchData, refreshInterval]);
 
-  return { data, loading, error, lastUpdated, refetch: fetchData };
+  return { data, loading, error, lastUpdated, refetch: fetchData, retryCount };
 }

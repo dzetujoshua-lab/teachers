@@ -4,45 +4,48 @@ import { validateDraftInput } from "@/lib/attendance-validation";
 import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
-  try {
-    const profile = await getProfileBySession(await cookies());
-    if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+   try {
+     const profile = await getProfileBySession(await cookies());
+     if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const db = await getFirebaseAdminDb();
-    if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
+     const db = await getFirebaseAdminDb();
+     if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
 
-    const url = new URL(request.url);
-    const statusFilter = url.searchParams.get("status");
-    const includeAll = url.searchParams.get("includeAll") === "true";
+     const url = new URL(request.url);
+     const statusFilter = url.searchParams.get("status");
+     const includeAll = url.searchParams.get("includeAll") === "true";
 
-    let q: FirebaseFirestore.Query = db.collection("attendanceDrafts");
+     let q: FirebaseFirestore.Query = db.collection("attendanceDrafts");
 
-    if (profile.role === "facilitator") {
-      q = q.where("facilitatorId", "==", profile.id);
-      const statusFilter = url.searchParams.get("status");
-      if (!statusFilter || statusFilter === "draft") {
-        q = q.where("status", "==", "draft");
-      }
-    } else if (profile.role === "super_admin") {
-      const statusFilter = url.searchParams.get("status");
-      if (statusFilter) {
-        q = q.where("status", "==", statusFilter);
-      }
-    } else if (profile.role === "kitchen_manager") {
-      q = q.where("status", "==", "sent_to_kitchen");
-    } else {
-      q = q.where("institutionId", "==", profile.institutionId || "");
-    }
+     if (profile.role === "facilitator") {
+       q = q.where("facilitatorId", "==", profile.id);
+       if (!statusFilter || statusFilter === "draft") {
+         q = q.where("status", "==", "draft");
+       }
+     } else if (profile.role === "super_admin") {
+       if (statusFilter) {
+         q = q.where("status", "==", statusFilter);
+       }
+     } else if (profile.role === "kitchen_manager") {
+       q = q.where("status", "==", "sent_to_kitchen");
+     } else {
+       if (!includeAll && profile.institutionId) {
+         q = q.where("institutionId", "==", profile.institutionId);
+       }
+     }
 
-    const snapshot = await q.get();
-    const rows = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+     const snapshot = await q.get();
+     const rows = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    return NextResponse.json({ rows });
-  } catch (error) {
-    console.error("Attendance drafts list error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
+     return NextResponse.json({ rows });
+   } catch (error: any) {
+     if (error?.code === "resource-exhausted" || error?.code === 8) {
+       return NextResponse.json({ error: "Quota exceeded. Please try again later." }, { status: 429 });
+     }
+     console.error("Attendance drafts list error:", error);
+     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+   }
+ }
 
 export async function POST(request: Request) {
   try {
@@ -55,6 +58,9 @@ export async function POST(request: Request) {
     if (!allowedRoles.has(profile.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const db = await getFirebaseAdminDb();
+    if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
 
     const body = await request.json();
 

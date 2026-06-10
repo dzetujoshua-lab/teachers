@@ -47,10 +47,10 @@ export function AdminClassesDashboard() {
       members: [] as ClassMember[],
     });
 
-   const { data: classesData, loading, lastUpdated } = useLiveData<{ data: ClassRow[] }>(
-     "/api/classes",
-     { pollInterval: 3000 }
-   );
+const { data: classesData, loading, lastUpdated } = useLiveData<{ data: ClassRow[] }>(
+      "/api/classes",
+      { pollInterval: 60000 }
+    );
 
    const classes = classesData?.data || [];
 

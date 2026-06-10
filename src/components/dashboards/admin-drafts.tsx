@@ -40,12 +40,12 @@ export function AdminDraftsDashboard() {
     const [sendingToKitchen, setSendingToKitchen] = React.useState(false);
     const [autoGenerating, setAutoGenerating] = React.useState(false);
 
-    const { data: draftsData, loading, lastUpdated } = useLiveData<{ rows: DraftRow[] }>(
-      "/api/attendance/drafts?includeAll=true",
-      { pollInterval: 3000 }
-    );
+const { data: draftsData, loading, lastUpdated, error: draftsError } = useLiveData<{ rows: DraftRow[] }>(
+       "/api/attendance/drafts?includeAll=true",
+       { pollInterval: 60000 }
+     );
 
-    const drafts = draftsData?.rows || [];
+     const drafts = draftsData?.rows || [];
 
   const [facilitators, setFacilitators] = React.useState<{ id: string; name?: string; email?: string }[]>([]);
   const [allStudents, setAllStudents] = React.useState<{ id: string; name: string; studentId?: string; email?: string }[]>([]);
@@ -75,6 +75,11 @@ const loadCreateResources = async () => {
          fetch(`/api/admin/firestore?collection=students`),
          fetch(`/api/classes`),
        ]);
+
+       if (!campusesRes.ok || !profilesRes.ok || !studentsRes.ok || !classesRes.ok) {
+         throw new Error("One or more resources failed to load");
+       }
+
        const [campusesData, profilesData, studentsData, classesData] = await Promise.all([
          campusesRes.json(),
          profilesRes.json(),
@@ -94,6 +99,9 @@ const loadCreateResources = async () => {
        setClassesList(classesData.data || []);
      } catch (err) {
        console.error("Failed to load create resources:", err);
+       setFacilitators([]);
+       setAllStudents([]);
+       setClassesList([]);
      }
    };
 
@@ -869,52 +877,55 @@ if (res.ok) {
         </Card>
       )}
 
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium">All Drafts</h3>
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        ) : drafts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No drafts found</p>
-        ) : (
-          <div className="grid gap-4">
-            {drafts.map((draft) => (
-              <Card key={draft.id} className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium">{draft.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {draft.members.length} members · Facilitator: {draft.facilitatorEmail || draft.facilitatorId}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {relativeTime(draft.createdAt)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        draft.status === "submitted" ? "warning" :
-                        draft.status === "approved" ? "success" :
-                        draft.status === "sent_to_kitchen" ? "default" : "outline"
-                      }
-                    >
-                      {draft.status}
-                    </Badge>
-                    {draft.status === "submitted" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditDraft(draft)}
-                      >
-                        <Edit className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+<div className="space-y-3">
+         <h3 className="text-sm font-medium">All Drafts</h3>
+         {draftsError && (
+           <p className="text-sm text-amber-600">Temporary connection issue - refresh to retry</p>
+         )}
+         {loading ? (
+           <p className="text-sm text-muted-foreground">Loading...</p>
+         ) : drafts.length === 0 ? (
+           <p className="text-sm text-muted-foreground">{draftsError ? "Unable to load drafts" : "No drafts found"}</p>
+         ) : (
+           <div className="grid gap-4">
+             {drafts.map((draft) => (
+               <Card key={draft.id} className="p-4">
+                 <div className="flex items-start justify-between">
+                   <div>
+                     <p className="font-medium">{draft.title}</p>
+                     <p className="text-xs text-muted-foreground">
+                       {draft.members.length} members · Facilitator: {draft.facilitatorEmail || draft.facilitatorId}
+                     </p>
+                     <p className="text-xs text-muted-foreground mt-1">
+                       {relativeTime(draft.createdAt)}
+                     </p>
+                   </div>
+                   <div className="flex items-center gap-2">
+                     <Badge
+                       variant={
+                         draft.status === "submitted" ? "warning" :
+                         draft.status === "approved" ? "success" :
+                         draft.status === "sent_to_kitchen" ? "default" : "outline"
+                       }
+                     >
+                       {draft.status}
+                     </Badge>
+                     {draft.status === "submitted" && (
+                       <Button
+                         variant="outline"
+                         size="sm"
+                         onClick={() => handleEditDraft(draft)}
+                       >
+                         <Edit className="size-4" />
+                       </Button>
+                     )}
+                   </div>
+                 </div>
+               </Card>
+             ))}
+           </div>
+         )}
+       </div>
     </div>
   );
 }

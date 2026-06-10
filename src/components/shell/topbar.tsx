@@ -31,10 +31,14 @@ export function Topbar({ role }: { role: Role }) {
   const [currentUser, setCurrentUser] = React.useState<DisplayUser | null>(null);
   const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
+React.useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
         const response = await fetch("/api/auth/me");
+        if (!response.ok) {
+          setCurrentUser(null);
+          return;
+        }
         const payload = await response.json();
         setCurrentUser(payload.profile);
       } catch (error) {
@@ -52,6 +56,10 @@ export function Topbar({ role }: { role: Role }) {
     const fetchNotifications = async () => {
       try {
         const res = await fetch(`/api/admin/firestore?collection=notifications`);
+        if (!res.ok) {
+          setNotifications([]);
+          return;
+        }
         const data = await res.json();
 
         const rows = (data?.rows ?? []).filter((n: any) => {

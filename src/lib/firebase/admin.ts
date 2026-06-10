@@ -61,12 +61,19 @@ export async function getFirebaseAdminDb() {
   return firestoreModule.getFirestore(app);
 }
 
-export async function getProfileBySession(cookies: { get(name: string): { value: string } | undefined }) {
+const profileCache = new Map<string, { profile: FirebaseProfile | null; expiresAt: number }>();
+
+export async function getProfileBySession(cookies: { get(name: string): { value: string } | undefined }): Promise<FirebaseProfile | null> {
   const auth = await getFirebaseAdminAuth();
   const db = await getFirebaseAdminDb();
   const token = cookies.get(FIREBASE_SESSION_COOKIE)?.value;
 
   if (!auth || !db || !token) return null;
+
+  const cached = profileCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.profile;
+  }
 
   let decoded;
 
@@ -139,12 +146,23 @@ export async function getProfileBySession(cookies: { get(name: string): { value:
   }
 
   if (!decoded) return null;
-  const snapshot = await db.collection("profiles").doc(decoded.uid).get();
+
+  let snapshot;
+  try {
+    snapshot = await db.collection("profiles").doc(decoded.uid).get();
+  } catch (err: any) {
+    if (err?.code === "resource-exhausted" || err?.code === 8) {
+      console.error("Firebase quota exceeded:", err);
+      return null;
+    }
+    throw err;
+  }
+
   const data = snapshot.data() as Omit<FirebaseProfile, "id"> | undefined;
 
   if (!data?.role) return null;
 
-  return {
+  const profile = {
     id: decoded.uid,
     uid: data.uid ?? decoded.uid,
     platformUserId: data.platformUserId,
@@ -155,6 +173,9 @@ export async function getProfileBySession(cookies: { get(name: string): { value:
     institutionId: data.institutionId,
     avatarColor: data.avatarColor ?? "#c52a58",
     forcePasswordReset: Boolean(data.forcePasswordReset),
-  } satisfies Person & { platformUserId?: string; institutionId?: string; forcePasswordReset: boolean };
+  } satisfies FirebaseProfile;
+
+  profileCache.set(token, { profile, expiresAt: Date.now() + 60000 });
+  return profile;
 }
 

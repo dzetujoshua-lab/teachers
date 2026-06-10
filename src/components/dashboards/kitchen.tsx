@@ -20,20 +20,20 @@ type AttendanceDraft = { id: string; title: string; members: { studentId: string
 export function KitchenDashboard() {
    const [publishing, setPublishing] = React.useState(false);
 
-   const { data: mealsData, loading: mealsLoading } = useLiveData<{ rows: MealRow[] }>(
-     "/api/admin/firestore?collection=meals",
-     { pollInterval: 3000 }
-   );
+const { data: mealsData, loading: mealsLoading } = useLiveData<{ rows: MealRow[] }>(
+      "/api/admin/firestore?collection=meals",
+      { pollInterval: 60000 }
+    );
 
-   const { data: splitData } = useLiveData<{ rows: MealSplitRow[] }>(
-     "/api/admin/firestore?collection=mealSplit",
-     { pollInterval: 5000 }
-   );
+    const { data: splitData } = useLiveData<{ rows: MealSplitRow[] }>(
+      "/api/admin/firestore?collection=mealSplit",
+      { pollInterval: 60000 }
+    );
 
-   const { data: draftsData, loading: draftsLoading, lastUpdated } = useLiveData<{ rows: AttendanceDraft[] }>(
-     "/api/attendance/drafts?status=sent_to_kitchen",
-     { pollInterval: 3000 }
-   );
+    const { data: draftsData, loading: draftsLoading, lastUpdated } = useLiveData<{ rows: AttendanceDraft[] }>(
+      "/api/attendance/drafts?status=sent_to_kitchen",
+      { pollInterval: 60000 }
+    );
 
    const menu = mealsData?.rows || [];
    const mealSplit = splitData?.rows || [];
