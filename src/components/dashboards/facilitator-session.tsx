@@ -33,7 +33,7 @@ const statuses: { key: AttendanceStatus; label: string; cls: string }[] = [
   { key: "suspended", label: "Suspended", cls: "bg-wine-500/15 text-wine-400 ring-wine-500/30" },
 ];
 
-const meals: { key: MealPreference; label: string; icon: typeof Flame }[] = [
+const meals: { key: MealPreference; label: string; icon: typeof Leaf }[] = [
   { key: "pepper_free", label: "Pepper-Free", icon: Leaf },
   { key: "alternative", label: "Alternative", icon: UtensilsCrossed },
 ];
