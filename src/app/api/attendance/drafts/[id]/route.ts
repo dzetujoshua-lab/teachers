@@ -3,15 +3,14 @@ import { getFirebaseAdminDb, getProfileBySession } from "@/lib/firebase/admin";
 import { validateAttendanceMarks } from "@/lib/attendance-validation";
 import { cookies } from "next/headers";
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const profile = await getProfileBySession(await cookies());
     if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = await getFirebaseAdminDb();
     if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
-
-    const id = params.id;
     const doc = await db.collection("attendanceDrafts").doc(id).get();
     if (!doc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -29,15 +28,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const profile = await getProfileBySession(await cookies());
     if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = await getFirebaseAdminDb();
     if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
-
-    const id = params.id;
     const docRef = db.collection("attendanceDrafts").doc(id);
     const doc = await docRef.get();
     if (!doc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });

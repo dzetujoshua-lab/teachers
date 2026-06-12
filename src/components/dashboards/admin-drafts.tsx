@@ -422,7 +422,7 @@ if (res.ok) {
         body: JSON.stringify({
           title: selectedDraft.title,
           classId: selectedDraft.classId || null,
-          // Intentionally NOT assigning to a specific facilitator.
+          facilitatorId: selectedDraft.facilitatorId || "unassigned",
           members: selectedDraft.members.map((m) => ({
             studentId: m.studentId,
             name: m.name,

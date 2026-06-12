@@ -21,8 +21,9 @@ async function sendEmailNotification({ to, subject, html }: { to: string; subjec
   }).catch((err) => console.error("Email send error:", err));
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const profile = await getProfileBySession(await cookies());
     if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -31,7 +32,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const db = await getFirebaseAdminDb();
     if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
 
-    const id = params.id;
     const docRef = db.collection("attendanceDrafts").doc(id);
     const doc = await docRef.get();
     if (!doc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });

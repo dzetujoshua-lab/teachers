@@ -51,39 +51,41 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
    const [showCreateStudent, setShowCreateStudent] = React.useState(false);
    const [showClassSelection, setShowClassSelection] = React.useState(true);
    const [newStudent, setNewStudent] = React.useState({
-     studentId: "",
-     name: "",
-     email: "",
+      studentId: "",
+      name: "",
+      email: "",
    });
    const [selectedClass, setSelectedClass] = React.useState<ClassData | null>(null);
    const [classesLoading, setClassesLoading] = React.useState(false);
    const [classes, setClasses] = React.useState<ClassData[]>([]);
+   const [sessionStartedAt, setSessionStartedAt] = React.useState<number | null>(null);
 
-const { data: sessionData, loading, lastUpdated } = useLiveData<{ data: AttendanceSessionData[] }>(
+ const { data: sessionData, loading, lastUpdated } = useLiveData<{ data: AttendanceSessionData[] }>(
       `/api/sessions?facilitatorId=${uid}`,
-      { pollInterval: 30000 }
+      { pollInterval: 30000, refreshInterval: 60 * 60 * 1000 }
     );
 
    const liveSession = sessionData?.data?.find((s) => s.status === "live");
     
-   React.useEffect(() => {
-     if (liveSession && !session) {
-       const members = (liveSession.roster || []).map((m: any) => ({
-         studentId: m.studentId,
-         name: m.name || "Student",
-         email: m.email,
-         status: "absent" as AttendanceStatus,
-       }));
-       setSession({
-         id: liveSession.id,
-         course: liveSession.course || liveSession.courseId,
-         room: liveSession.room || liveSession.roomId || "Unassigned",
-         members,
-         startedAt: liveSession.startedAt,
-         status: liveSession.status,
-       });
-     }
-   }, [liveSession, session]);
+    React.useEffect(() => {
+      if (liveSession && !session) {
+        const members = (liveSession.roster || []).map((m: any) => ({
+          studentId: m.studentId,
+          name: m.name || "Student",
+          email: m.email,
+          status: "absent" as AttendanceStatus,
+        }));
+        setSession({
+          id: liveSession.id,
+          course: liveSession.course || liveSession.courseId,
+          room: liveSession.room || liveSession.roomId || "Unassigned",
+          members,
+          startedAt: liveSession.startedAt,
+          status: liveSession.status,
+        });
+        setSessionStartedAt(Date.now());
+      }
+    }, [liveSession, session]);
 
    React.useEffect(() => {
      const loadClasses = async () => {
@@ -144,7 +146,22 @@ const { data: sessionData, loading, lastUpdated } = useLiveData<{ data: Attendan
      }
    };
 
-   const handleMarkAttendance = async (studentId: string, status: AttendanceStatus) => {
+   React.useEffect(() => {
+      if (!session || !sessionStartedAt) return;
+
+      const elapsedMs = Date.now() - sessionStartedAt;
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const remainingMs = ONE_HOUR_MS - (elapsedMs % ONE_HOUR_MS);
+
+      const timer = window.setTimeout(() => {
+        setSession(null);
+        setSessionStartedAt(null);
+      }, remainingMs);
+
+      return () => window.clearTimeout(timer);
+    }, [session, sessionStartedAt]);
+
+    const handleMarkAttendance = async (studentId: string, status: AttendanceStatus) => {
      if (!session || !session.members) return;
 
      const updatedMembers = session.members.map(m => 
