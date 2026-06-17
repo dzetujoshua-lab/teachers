@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getFirebaseAdminDb, getProfileBySession } from '@/lib/firebase/admin';
 import { cookies } from 'next/headers';
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     }
 
     const snapshot = await query.get();
-    const sessions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const sessions = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() }));
 
     return NextResponse.json({
       data: sessions,

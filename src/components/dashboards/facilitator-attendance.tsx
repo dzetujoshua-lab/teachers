@@ -216,6 +216,9 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
      setSubmitting(true);
      try {
        const draftCheckRes = await fetch(`/api/attendance/drafts?facilitatorId=${uid}&includeAll=true`);
+       if (!draftCheckRes.ok) {
+         throw new Error(`Failed to check existing drafts: ${draftCheckRes.statusText}`);
+       }
        const draftCheckData = await draftCheckRes.json();
 
        let draftId = null;
@@ -240,6 +243,11 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
              })),
            }),
          });
+
+         if (!createDraftRes.ok) {
+           throw new Error(`Failed to create attendance draft: ${createDraftRes.statusText}`);
+         }
+
          const createDraftData = await createDraftRes.json();
          if (createDraftData.success) {
            draftId = createDraftData.id;
@@ -248,23 +256,27 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
          draftId = existingDraft.id;
        }
 
-       for (const member of session.members) {
-         await fetch("/api/attendance", {
-           method: "POST",
-           headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({
-             sessionId: session.id,
+       const bulkAttendanceRes = await fetch("/api/attendance/bulk", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({
+           sessionId: session.id,
+           records: session.members.map((member) => ({
              studentId: member.studentId,
              method: "manual",
              metadata: {
                status: member.status,
              },
-           }),
-         });
+           })),
+         }),
+       });
+
+       if (!bulkAttendanceRes.ok) {
+         throw new Error("Failed to record bulk attendance");
        }
 
        if (draftId) {
-         await fetch(`/api/attendance/drafts/${draftId}`, {
+         const res = await fetch(`/api/attendance/drafts/${draftId}`, {
            method: "PATCH",
            headers: { "Content-Type": "application/json" },
            body: JSON.stringify({
@@ -272,6 +284,9 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
              status: "submitted",
            }),
          });
+         if (!res.ok) {
+           throw new Error("Failed to update draft status to submitted");
+         }
        }
 
        fetch("/api/attendance/notify-admin-on-submit", {
@@ -284,7 +299,7 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
        setSession(null);
      } catch (err) {
        console.error("Error submitting attendance:", err);
-       alert("Error submitting attendance");
+       alert(err instanceof Error ? err.message : "Error submitting attendance");
      } finally {
        setSubmitting(false);
      }

@@ -148,7 +148,7 @@ const handleAutoGenerateToday = async () => {
         const parts = line.split(",").map((p) => p.trim());
         const [idNo = "", classCode = "", studentName = "", email = ""] = parts;
         if (!idNo && !classCode && !studentName && !email) return null;
-        return { idNo, classCode, studentName, email };
+        return { idNo, classCode, studentName, email, status: "present" as AttendanceStatus };
       })
       .filter((r): r is SpreadsheetStudentRow => Boolean(r));
     setEditableRows(parsed);
@@ -195,7 +195,7 @@ const handleAutoGenerateToday = async () => {
 const newRows = lines.map((line) => {
        const parts = line.split(",").map((p) => p.trim());
        const [rawStudentId = "", classCode = "", name = "", email = ""] = parts;
-       return { idNo: rawStudentId, classCode, studentName: name, email };
+       return { idNo: rawStudentId, classCode, studentName: name, email, status: "present" as AttendanceStatus };
      }).filter((r): r is SpreadsheetStudentRow => Boolean(r));
     setEditableRows((prev) => {
       const updated = [...prev];
