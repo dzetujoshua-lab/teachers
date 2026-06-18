@@ -37,6 +37,7 @@ export interface RoleConfig {
 
 export const ROLE_LABELS: Record<Role, string> = {
   super_admin: "Super Admin",
+  campus_admin: "Campus Admin",
   facilitator: "Facilitator",
   kitchen_manager: "Kitchen Manager",
   security_officer: "Security Officer",
@@ -62,6 +63,18 @@ export const ROLES: Record<Role, RoleConfig> = {
       { label: "Fraud Reports", href: "/dashboard/super_admin/fraud", icon: ShieldCheck, badge: "4" },
       { label: "Audit Logs", href: "/dashboard/super_admin/audit", icon: ScrollText },
       { label: "Settings", href: "/dashboard/super_admin/settings", icon: Settings },
+    ],
+  },
+  campus_admin: {
+    label: "Campus Admin",
+    tagline: "Manage campus attendance operations",
+    accent: "wine",
+    nav: [
+      ...base("campus_admin"),
+      { label: "Classes", href: "/dashboard/campus_admin/classes", icon: GraduationCap },
+      { label: "Drafts", href: "/dashboard/campus_admin/drafts", icon: ClipboardCheck },
+      { label: "Attendance Stats", href: "/dashboard/campus_admin/attendance-stats", icon: BarChart3 },
+      { label: "Reports", href: "/dashboard/campus_admin/reports", icon: FileText },
     ],
   },
   facilitator: {

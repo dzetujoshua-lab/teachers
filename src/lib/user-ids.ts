@@ -2,6 +2,7 @@ import type { Role } from "./types";
 
 const ROLE_PREFIX: Record<Role, string> = {
   super_admin: "SA",
+  campus_admin: "CA",
   facilitator: "FAC",
   kitchen_manager: "KIT",
   security_officer: "SEC",

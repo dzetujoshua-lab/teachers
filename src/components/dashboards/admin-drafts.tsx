@@ -51,7 +51,8 @@ export function AdminDraftsDashboard() {
   const [allStudents, setAllStudents] = useState<{ id: string; name: string; studentId?: string; email?: string }[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]); // Unused, consider removing
-  const [selectedFacilitator, setSelectedFacilitator] = useState<string | null>(null); // Unused, consider removing
+  const [selectedFacilitator, setSelectedFacilitator] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
 
   const [creating, setCreating] = useState(false);
   const [creatingCampus, setCreatingCampus] = useState(false);
@@ -65,6 +66,8 @@ export function AdminDraftsDashboard() {
   const [newCampus, setNewCampus] = useState({ name: "", location: "" });
   const [newStudent, setNewStudent] = useState({ studentId: "", name: "", email: "", campusId: "" });
   const [classForm, setClassForm] = useState({ code: "", name: "", campusId: "", facilitatorId: "", members: [] as string[] });
+  const selectedClass = classesList.find((c: any) => c.id === selectedClassId);
+  const selectedFacilitatorId = selectedClass?.facilitatorId || selectedFacilitator;
 
   const loadCreateResources = async () => {
      try {
@@ -340,6 +343,46 @@ const newRows = lines.map((line) => {
     </div>
   );
 
+  const getDraftMembers = () => editableRows
+    .filter((r) => r.idNo && r.classCode && r.studentName && r.email)
+    .map((r) => ({ studentId: r.idNo, name: r.studentName, email: r.email, status: r.status }));
+
+  const createDraftFromRows = async () => {
+    if (editableRows.length === 0) return alert("Enter at least one student row");
+
+    const members = getDraftMembers();
+    if (members.length === 0) return alert("Enter valid student data");
+    if (!selectedFacilitatorId) return alert("Select a facilitator or class before creating the draft");
+
+    setCreating(true);
+    try {
+      const res = await fetch("/api/attendance/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newTitle || (selectedClass ? `${selectedClass.code} - ${selectedClass.name}` : "Attendance draft"),
+          classId: selectedClassId || "none",
+          facilitatorId: selectedFacilitatorId,
+          members,
+        }),
+      });
+      if (res.ok) {
+        alert("Draft created and sent to facilitator");
+        setNewTitle("");
+        setBulkStudentsText("");
+        setShowCreate(false);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Failed to create draft");
+      }
+    } catch (err) {
+      console.error("Create draft error:", err);
+      alert("Error creating draft");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const formatStudentIdNumber = (raw: string) => {
     const digitsOnly = String(raw).replace(/\D+/g, "");
     const asNumber = Number(digitsOnly);
@@ -404,6 +447,10 @@ const newRows = lines.map((line) => {
 
   const handleSendToFacilitator = async () => {
     if (!selectedDraft) return;
+    if (!selectedDraft.facilitatorId || selectedDraft.facilitatorId === "unassigned") {
+      alert("Select a facilitator before re-assigning this draft");
+      return;
+    }
 
     setSubmitting(true); // Reusing submitting state for this action
     try {
@@ -412,11 +459,11 @@ const newRows = lines.map((line) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: selectedDraft.title,
-          classId: selectedDraft.classId || "none", // Ensure it's a string, not null
-          facilitatorId: selectedDraft.facilitatorId || "unassigned",
+          classId: selectedDraft.classId || "none",
+          facilitatorId: selectedDraft.facilitatorId,
           members: selectedDraft.members.map((m) => ({
-            studentId: m.studentId, // Ensure these are passed correctly
-            name: m.name, // Ensure these are passed correctly
+            studentId: m.studentId,
+            name: m.name,
           })),
         }),
       });
@@ -768,48 +815,40 @@ const newRows = lines.map((line) => {
           <p className="text-xs text-muted-foreground">
             Enter student data in the table below. Columns: ID No., Class Code, Student Name, Email, Status
           </p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <select
+              value={selectedClassId}
+              onChange={(e) => {
+                const id = e.target.value;
+                const cls = classesList.find((c: any) => c.id === id);
+                setSelectedClassId(id);
+                if (cls?.facilitatorId) setSelectedFacilitator(cls.facilitatorId);
+              }}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Select class (optional)</option>
+              {classesList.map((cls: any) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.code} - {cls.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedFacilitator}
+              onChange={(e) => setSelectedFacilitator(e.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Select facilitator</option>
+              {facilitators.map((facilitator) => (
+                <option key={facilitator.id} value={facilitator.id}>
+                  {facilitator.name || facilitator.email || facilitator.id}
+                </option>
+              ))}
+            </select>
+          </div>
           {renderEditableTable()}
           <Button
-            onClick={async () => {
-              if (editableRows.length === 0) return alert("Enter at least one student row");
-              const members = editableRows
-                .filter(r => r.idNo && r.classCode && r.studentName && r.email)
-                .map(r => ({ studentId: r.idNo, name: r.studentName, email: r.email, status: r.status }));
-              if (members.length === 0) return alert("Enter valid student data");
-              setCreating(true);
-              try {
-                const res = await fetch("/api/attendance/drafts", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ // Ensure diet is included if needed for draft creation
-                    title: newTitle || "Attendance draft",
-                    classId: "none",
-                    facilitatorId: "unassigned",
-                    members,
-                  }),
-                });
-                if (res.ok) {
-                  alert("Draft created and sent");
-                  setNewTitle("");
-                  setBulkStudentsText("");
-                  setEditableRows([ // Reset editable rows to default
-                     { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu", status: "present" },
-                     { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu", status: "present" },
-                     { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu", status: "present" },
-                     { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu", status: "present" },
-                     { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu", status: "present" },
-                   ]);
-                } else {
-                  const err = await res.json().catch(() => ({}));
-                  alert(err.error || "Failed to create draft");
-                }
-              } catch (err) {
-                console.error("Create draft error:", err);
-                alert("Error creating draft");
-              } finally {
-                setCreating(false);
-              }
-            }}
+            onClick={createDraftFromRows}
             disabled={creating}
           >
             {creating ? "Creating..." : "Create & Send"}
@@ -829,52 +868,43 @@ const newRows = lines.map((line) => {
       {showCreate && (
         <Card className="p-6">
           <h3 className="text-sm font-medium mb-2">Create Attendance Draft</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            <select
+              value={selectedClassId}
+              onChange={(e) => {
+                const id = e.target.value;
+                const cls = classesList.find((c: any) => c.id === id);
+                setSelectedClassId(id);
+                if (cls?.facilitatorId) setSelectedFacilitator(cls.facilitatorId);
+              }}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Select class (optional)</option>
+              {classesList.map((cls: any) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.code} - {cls.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedFacilitator}
+              onChange={(e) => setSelectedFacilitator(e.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Select facilitator</option>
+              {facilitators.map((facilitator) => (
+                <option key={facilitator.id} value={facilitator.id}>
+                  {facilitator.name || facilitator.email || facilitator.id}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="space-y-4">
             <Input placeholder="Draft title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
             {renderEditableTable()}
             <div className="flex gap-2">
               <Button
-                onClick={async () => {
-                  if (editableRows.length === 0) return alert("Enter at least one student row");
-                  const members = editableRows
-                    .filter(r => r.idNo && r.classCode && r.studentName && r.email)
-                    .map(r => ({ studentId: r.idNo, name: r.studentName, email: r.email, status: r.status }));
-                  if (members.length === 0) return alert("Enter valid student data");
-                  setCreating(true);
-                  try {
-                    const res = await fetch("/api/attendance/drafts", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ // Ensure diet is included if needed for draft creation
-                        title: newTitle || "Attendance draft",
-                        classId: "none",
-                        facilitatorId: "unassigned",
-                        members,
-                      }),
-                    });
-                    if (res.ok) {
-                      alert("Draft created and sent");
-                      setShowCreate(false);
-                      setNewTitle("");
-                      setBulkStudentsText("");
-                      setEditableRows([ // Reset editable rows to default
-                         { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu", status: "present" },
-                         { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu", status: "present" },
-                         { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu", status: "present" },
-                         { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu", status: "present" },
-                         { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu", status: "present" },
-                       ]);
-                    } else {
-                      const err = await res.json().catch(() => ({}));
-                      alert(err.error || "Failed to create draft");
-                    }
-                  } catch (err) {
-                    console.error("Create draft error:", err);
-                    alert("Error creating draft");
-                  } finally {
-                    setCreating(false);
-                  }
-                }}
+                onClick={createDraftFromRows}
                 disabled={creating}
               >
                 {creating ? "Creating..." : "Create & Send"}

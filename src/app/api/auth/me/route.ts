@@ -1,12 +1,21 @@
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
-import { getProfileBySession } from "@/lib/firebase/admin";
+import { NextResponse } from 'next/server';
+import { getProfileBySession } from '@/lib/auth';
 
+/**
+ * GET /api/auth/me
+ * Retrieves the profile of the currently authenticated user.
+ */
 export async function GET() {
-  const profile = await getProfileBySession(await cookies());
-  if (!profile) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  try {
+    const profile = await getProfileBySession();
 
-  return NextResponse.json({ profile });
+    if (!profile) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    return NextResponse.json(profile);
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }
