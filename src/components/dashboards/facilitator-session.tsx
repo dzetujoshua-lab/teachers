@@ -44,12 +44,12 @@ interface Mark {
   meal?: MealPreference;
 }
 
-export function FacilitatorSession() {
+export function FacilitatorSession({ draftId: propDraftId }: { draftId?: string }) {
   const [marks, setMarks] = React.useState<Record<string, Mark>>({});
   const [started, setStarted] = React.useState(false);
   const [elapsed, setElapsed] = React.useState(0);
   const [roster, setRoster] = React.useState<SessionStudent[]>([]);
-  const [draftId, setDraftId] = React.useState<string | null>(null);
+  const [draftId, setDraftId] = React.useState<string | null>(propDraftId ?? null);
   const [draftTitle, setDraftTitle] = React.useState<string>("");
   const [assignmentLoading, setAssignmentLoading] = React.useState(true);
   const [publishing, setPublishing] = React.useState(false);
@@ -58,12 +58,13 @@ export function FacilitatorSession() {
     const loadAssignedDraft = async () => {
       try {
         setAssignmentLoading(true);
-        const response = await fetch("/api/attendance/drafts?status=draft");
+        const url = draftId ? `/api/attendance/drafts/${draftId}` : "/api/attendance/drafts?status=draft";
+        const response = await fetch(url);
         if (!response.ok) return;
         const data = await response.json();
-        const draft = Array.isArray(data.rows) && data.rows.length > 0 ? data.rows[0] : null;
+        const draft = draftId ? data : (Array.isArray(data.rows) && data.rows.length > 0 ? data.rows[0] : null);
 
-        if (draft) {
+        if (draft && draft.facilitatorId !== "unassigned") {
           setDraftId(draft.id);
           setDraftTitle(draft.title || "Assigned attendance draft");
           setRoster(
@@ -92,7 +93,7 @@ export function FacilitatorSession() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [draftId]);
 
   React.useEffect(() => {
     if (!started) return;
@@ -247,10 +248,10 @@ export function FacilitatorSession() {
                   </div>
 
 <div className="flex gap-1.5">
-                     {statuses.map((s) => {
-                       const active = mark.status === s.key;
-                       const Icon = s.key === "present" ? Check : s.key === "late" ? Clock : s.key === "suspended" ? PauseCircle : X;
-                       return (
+                    {statuses.map((s) => {
+                      const active = mark.status === s.key;
+                      const Icon = s.key === "present" ? Check : s.key === "late" ? Clock : s.key === "suspended" ? PauseCircle : X;
+                      return (
                         <button
                           key={s.key}
                           onClick={() => setStatus(r.id, s.key)}

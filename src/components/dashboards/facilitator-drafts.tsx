@@ -41,7 +41,7 @@ export function FacilitatorDraftsDashboard() {
         const response = await fetch(`/api/attendance/drafts/${draftId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "draft" }), // Signal to claim the draft
+          body: JSON.stringify({ status: "draft" }),
         });
 
         if (!response.ok) {
@@ -50,7 +50,6 @@ export function FacilitatorDraftsDashboard() {
         }
 
         toast.success("Attendance list claimed! You can now take attendance.");
-        // Refresh the list to show the change in state
         setDrafts(drafts.map(d => d.id === draftId ? { ...d, facilitatorId: profile!.uid } : d));
         router.refresh();
       } catch (error: any) {
@@ -60,8 +59,8 @@ export function FacilitatorDraftsDashboard() {
   };
 
   const handleTakeAttendance = (draftId: string) => {
-    // Navigate to the specific page for taking attendance for this draft
-    router.push(`/dashboard/facilitator/session/${draftId}`);
+    if (!profile?.uid) return;
+    router.push(`/dashboard/facilitator/${profile.uid}/session/${draftId}`);
   };
 
   if (isLoading) {

@@ -1246,6 +1246,11 @@ export function SectionShell({ role, title, section }: { role: Role; title: stri
           if (section === "attendance-stats") return <AttendanceStatisticsDashboard />;
           return <CampusModules section={section} query={query} filter={filter} pushToast={(t) => setToast(t)} campusRows={campusRows} insights={insights} departmentTrend={deptTrend} weeklyAttendance={weeklyAttendance} />;
         }
+        if (role === "campus_admin") {
+          if (section === "classes") return <AdminClassesDashboard />;
+          if (section === "drafts") return <FacilitatorDraftsDashboard />;
+          return <CampusAdminModules section={section} query={query} pushToast={(t) => setToast(t)} liveFeed={liveFeed} liveSessions={liveSessions} departments={departments} />;
+        }
         if (role === "facilitator") {
           if (section === "drafts") return <FacilitatorDraftsDashboard />;
           return <FacilitatorModules section={section} query={query} pushToast={(t) => setToast(t)} />;

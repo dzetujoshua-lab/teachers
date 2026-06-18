@@ -41,6 +41,7 @@ async function resolveFacilitatorId(facilitatorId: unknown, classId: unknown) {
 /**
  * GET /api/attendance/drafts
  * Facilitators call this to see templates assigned to them.
+ * Admins see drafts for their institution.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -68,6 +69,12 @@ export async function GET(req: NextRequest) {
           Filter.where('facilitatorId', '==', 'unassigned')
         )
       );
+    } else if (profile.role === 'campus_admin' || profile.role === 'super_admin') {
+      // Admins see drafts for their institution
+      const institutionId = profile.institutionId;
+      if (institutionId) {
+        draftsQuery = draftsQuery.where('institutionId', '==', institutionId);
+      }
     }
 
     const snapshot = await draftsQuery.get();

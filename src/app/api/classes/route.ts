@@ -69,7 +69,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const profile = await getProfileBySession(await cookies());
-    if (!profile || profile.role !== 'super_admin') {
+    if (!profile || (profile.role !== 'super_admin' && profile.role !== 'campus_admin')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

@@ -22,6 +22,11 @@ export default async function FacilitatorUidSection({
     return <FacilitatorSession />;
   }
 
+  if (resolvedParams.section === "drafts") {
+    const { FacilitatorDraftsDashboard } = await import("@/components/dashboards/facilitator-drafts");
+    return <FacilitatorDraftsDashboard />;
+  }
+
   const { SectionShell } = await import("@/components/dashboard/section-shell");
   const sectionLabels: Record<string, string> = {
     classes: "My Classes",
