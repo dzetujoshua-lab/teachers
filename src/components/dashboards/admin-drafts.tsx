@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import React, { useState, useEffect } from "react";
 import { Send, CheckCircle, Clock, AlertCircle, Edit, Save, ChefHat, Plus, X, PauseCircle } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ interface DraftRow {
   classId?: string;
   facilitatorId: string;
   facilitatorEmail?: string;
-  members: { studentId: string; name: string; status?: AttendanceStatus }[];
+  members: { studentId: string; name: string; status?: AttendanceStatus; diet?: "pepper" | "pepper_free" }[];
   status: "draft" | "submitted" | "approved" | "sent_to_kitchen";
   createdAt: string;
   updatedAt: string;
@@ -33,41 +33,40 @@ interface SpreadsheetStudentRow {
 
 
 export function AdminDraftsDashboard() {
-   const [showCreate, setShowCreate] = React.useState(false);
-    const [selectedDraft, setSelectedDraft] = React.useState<DraftRow | null>(null);
-    const [editMembers, setEditMembers] = React.useState<{ studentId: string; name: string; status?: AttendanceStatus }[]>([]);
-    const [submitting, setSubmitting] = React.useState(false);
-    const [sendingToKitchen, setSendingToKitchen] = React.useState(false);
-    const [autoGenerating, setAutoGenerating] = React.useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [selectedDraft, setSelectedDraft] = useState<DraftRow | null>(null);
+  const [editMembers, setEditMembers] = useState<{ studentId: string; name: string; status?: AttendanceStatus; diet?: "pepper" | "pepper_free" }[]>([]); // Added diet
+  const [submitting, setSubmitting] = useState(false);
+  const [verifying, setVerifying] = useState(false); // New state for verification
+  const [autoGenerating, setAutoGenerating] = useState(false);
 
-const { data: draftsData, loading, lastUpdated, error: draftsError } = useLiveData<{ rows: DraftRow[] }>(
-       "/api/attendance/drafts?includeAll=true",
-       { pollInterval: 60000 }
-     );
+  const { data: draftsData, loading, lastUpdated, error: draftsError } = useLiveData<{ rows: DraftRow[] }>(
+    "/api/attendance/drafts?includeAll=true",
+    { pollInterval: 60000 }
+  );
 
-     const drafts = draftsData?.rows || [];
+  const drafts = draftsData?.rows || [];
 
-  const [facilitators, setFacilitators] = React.useState<{ id: string; name?: string; email?: string }[]>([]);
-  const [allStudents, setAllStudents] = React.useState<{ id: string; name: string; studentId?: string; email?: string }[]>([]);
-  const [newTitle, setNewTitle] = React.useState("");
-  const [selectedStudents, setSelectedStudents] = React.useState<string[]>([]);
-  const [selectedFacilitator, setSelectedFacilitator] = React.useState<string | null>(null);
+  const [facilitators, setFacilitators] = useState<{ id: string; name?: string; email?: string }[]>([]);
+  const [allStudents, setAllStudents] = useState<{ id: string; name: string; studentId?: string; email?: string }[]>([]);
+  const [newTitle, setNewTitle] = useState("");
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]); // Unused, consider removing
+  const [selectedFacilitator, setSelectedFacilitator] = useState<string | null>(null); // Unused, consider removing
 
+  const [creating, setCreating] = useState(false);
+  const [creatingCampus, setCreatingCampus] = useState(false);
+  const [creatingStudent, setCreatingStudent] = useState(false);
+  const [creatingBulkStudents, setCreatingBulkStudents] = useState(false);
+  const [bulkStudentsText, setBulkStudentsText] = useState("");
+  const [bulkCampusId, setBulkCampusId] = useState("");
+  const [creatingClass, setCreatingClass] = useState(false);
+  const [campuses, setCampuses] = useState<{ id: string; name: string; location?: string }[]>([]);
+  const [classesList, setClassesList] = useState<any[]>([]);
+  const [newCampus, setNewCampus] = useState({ name: "", location: "" });
+  const [newStudent, setNewStudent] = useState({ studentId: "", name: "", email: "", campusId: "" });
+  const [classForm, setClassForm] = useState({ code: "", name: "", campusId: "", facilitatorId: "", members: [] as string[] });
 
-  const [creating, setCreating] = React.useState(false);
-  const [creatingCampus, setCreatingCampus] = React.useState(false);
-const [creatingStudent, setCreatingStudent] = React.useState(false);
-   const [creatingBulkStudents, setCreatingBulkStudents] = React.useState(false);
-   const [bulkStudentsText, setBulkStudentsText] = React.useState("");
-   const [bulkCampusId, setBulkCampusId] = React.useState("");
-   const [creatingClass, setCreatingClass] = React.useState(false);
-  const [campuses, setCampuses] = React.useState<{ id: string; name: string; location?: string }[]>([]);
-  const [classesList, setClassesList] = React.useState<any[]>([]);
-  const [newCampus, setNewCampus] = React.useState({ name: "", location: "" });
-  const [newStudent, setNewStudent] = React.useState({ studentId: "", name: "", email: "", campusId: "" });
-  const [classForm, setClassForm] = React.useState({ code: "", name: "", campusId: "", facilitatorId: "", members: [] as string[] });
-
-const loadCreateResources = async () => {
+  const loadCreateResources = async () => {
      try {
        const [campusesRes, profilesRes, studentsRes, classesRes] = await Promise.all([
          fetch(`/api/campuses`),
@@ -105,11 +104,11 @@ const loadCreateResources = async () => {
      }
    };
 
-   React.useEffect(() => {
+   useEffect(() => {
      loadCreateResources();
    }, []);
 
-const handleAutoGenerateToday = async () => {
+  const handleAutoGenerateToday = async () => {
       setAutoGenerating(true);
       try {
         const res = await fetch("/api/attendance/auto-generate-daily-drafts", {
@@ -130,14 +129,13 @@ const handleAutoGenerateToday = async () => {
       }
     };
 
-  const [editableRows, setEditableRows] = React.useState<SpreadsheetStudentRow[]>([
+  const [editableRows, setEditableRows] = useState<SpreadsheetStudentRow[]>([
     { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu", status: "present" },
     { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu", status: "present" },
     { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu", status: "present" },
     { idNo: "104", classCode: "D-104", studentName: "Emily Wilson", email: "emily.wilson@students.edu", status: "present" },
     { idNo: "105", classCode: "A-101", studentName: "Michael Brown", email: "michael.brown@students.edu", status: "present" },
   ]);
-
   const syncEditableRowsFromText = () => {
     const lines = bulkStudentsText
       .split("\n")
@@ -161,7 +159,7 @@ const handleAutoGenerateToday = async () => {
     setBulkStudentsText(text);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (bulkStudentsText.trim()) {
       syncEditableRowsFromText();
     }
@@ -181,13 +179,13 @@ const handleAutoGenerateToday = async () => {
     setBulkStudentsText((prev) => `${prev}\n,,,,`);
   };
 
-  const removeEditableRow = (idx: number) => {
+  const removeEditableRow = (idx: number) => { // Unused, consider removing
     setEditableRows((prev) => prev.filter((_, i) => i !== idx));
     const lines = bulkStudentsText.split("\n").filter((_, i) => i !== idx);
     setBulkStudentsText(lines.join("\n"));
   };
 
-  const handleRowPaste = (e: React.ClipboardEvent, idx: number) => {
+  const handleRowPaste = (e: React.ClipboardEvent, idx: number) => { // Unused, consider removing
     const pasted = e.clipboardData.getData("text/plain");
     const lines = pasted.split("\n").filter((l) => l.trim());
     if (lines.length <= 1) return;
@@ -349,7 +347,7 @@ const newRows = lines.map((line) => {
   };
   const handleEditDraft = (draft: DraftRow) => {
     setSelectedDraft(draft);
-    setEditMembers(draft.members.map((m) => ({ ...m })));
+    setEditMembers(draft.members.map((m) => ({ ...m, diet: m.diet || "pepper" }))); // Initialize diet
   };
 
   const handleStatusChange = (
@@ -361,75 +359,67 @@ const newRows = lines.map((line) => {
     setEditMembers(updated);
   };
 
-  const handleSaveEdit = async () => {
+  const handleDietChange = (
+    idx: number,
+    diet: "pepper" | "pepper_free"
+  ) => {
+    const updated = [...editMembers];
+    updated[idx] = { ...updated[idx], diet };
+    setEditMembers(updated);
+  };
+
+  const handleApproveAndDistribute = async () => {
     if (!selectedDraft) return;
 
+    setVerifying(true);
     try {
-      const res = await fetch(`/api/attendance/drafts/${selectedDraft.id}`, {
-        method: "PATCH",
+      // Call the new API endpoint to verify and distribute attendance records
+      const res = await fetch("/api/attendance/verify", {
+        method: "POST", // Changed to POST for creating/updating attendance_records
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          draftId: selectedDraft.id,
           members: editMembers,
-          status: "approved",
+          classId: selectedDraft.classId,
+          className: selectedDraft.title, // Using title as class_name for now
+          facilitatorId: selectedDraft.facilitatorId,
         }),
       });
 
-if (res.ok) {
-         alert("Draft saved and approved");
-         setSelectedDraft(null);
-       } else {
-         alert("Failed to save draft");
-       }
+      if (res.ok) {
+        alert("Attendance verified and distributed successfully!");
+        setSelectedDraft(null); // Close the edit view
+        // The useLiveData hook will automatically refetch and update the drafts list
+      } else {
+        const result = await res.json();
+        alert(result.error || "Failed to verify and distribute attendance.");
+      }
     } catch (err) {
-      console.error("Error saving draft:", err);
-      alert("Error saving draft");
-    }
-  };
-
-  const handleSendToKitchen = async () => {
-    if (!selectedDraft) return;
-
-    setSendingToKitchen(true);
-    try {
-      const res = await fetch(`/api/attendance/drafts/${selectedDraft.id}/send-to-kitchen`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-if (res.ok) {
-         alert("Attendance sent to kitchen manager successfully");
-         setSelectedDraft(null);
-       } else {
-         const result = await res.json();
-         alert(result.error || "Failed to send to kitchen manager");
-       }
-    } catch (err) {
-      console.error("Error sending to kitchen:", err);
-      alert("Error sending to kitchen manager");
+      console.error("Error verifying attendance:", err);
+      alert("Error verifying attendance");
     } finally {
-      setSendingToKitchen(false);
+      setVerifying(false);
     }
   };
 
   const handleSendToFacilitator = async () => {
     if (!selectedDraft) return;
 
-    setSendingToKitchen(true);
+    setSubmitting(true); // Reusing submitting state for this action
     try {
       const res = await fetch("/api/attendance/drafts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: selectedDraft.title,
-          classId: selectedDraft.classId || null,
+          classId: selectedDraft.classId || "none", // Ensure it's a string, not null
           facilitatorId: selectedDraft.facilitatorId || "unassigned",
           members: selectedDraft.members.map((m) => ({
-            studentId: m.studentId,
-            name: m.name,
+            studentId: m.studentId, // Ensure these are passed correctly
+            name: m.name, // Ensure these are passed correctly
           })),
         }),
       });
-
 
       const result = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -441,8 +431,8 @@ if (res.ok) {
     } catch (err) {
       console.error("Error sending to facilitator:", err);
       alert("Error sending to facilitator");
-    } finally {
-      setSendingToKitchen(false);
+    } finally { // Changed from setSendingToKitchen to setSubmitting
+      setSubmitting(false);
     }
   };
 
@@ -470,7 +460,7 @@ if (res.ok) {
     } catch (err) {
       console.error("Error creating campus:", err);
       alert("Error creating campus");
-    } finally {
+    } finally { // Unused, consider removing
       setCreatingCampus(false);
     }
   };
@@ -499,7 +489,7 @@ if (res.ok) {
     } catch (err) {
       console.error("Error creating student:", err);
       alert("Error creating student");
-} finally {
+    } finally { // Unused, consider removing
       setCreatingStudent(false);
     }
   };
@@ -545,7 +535,7 @@ if (res.ok) {
     } catch (err) {
       console.error("Error creating bulk students:", err);
       alert("Error creating students");
-    } finally {
+    } finally { // Unused, consider removing
       setCreatingBulkStudents(false);
     }
   };
@@ -587,7 +577,7 @@ if (res.ok) {
     } catch (err) {
       console.error("Error creating class:", err);
       alert("Error creating class");
-    } finally {
+    } finally { // Unused, consider removing
       setCreatingClass(false);
     }
   };
@@ -649,7 +639,8 @@ if (res.ok) {
                </thead>
                <tbody>
                  {editMembers.map((member, idx) => (
-                   <tr key={idx}>
+                   <React.Fragment key={idx}>
+                   <tr>
                      <td className="border border-slate-300 px-3 py-1.5 text-center font-mono text-muted-foreground font-medium bg-slate-100">
                        {idx + 1}
                      </td>
@@ -693,6 +684,32 @@ if (res.ok) {
                        </select>
                      </td>
                    </tr>
+                   <tr>
+                     <td className="border border-slate-300 px-3 py-1.5 text-center font-mono text-muted-foreground font-medium bg-slate-100">
+                       {/* Empty cell for alignment */}
+                     </td>
+                     <td colSpan={3} className="border border-slate-300 px-0 py-1 bg-white">
+                       <div className="flex gap-2 px-3">
+                         <Button
+                           variant={member.diet === "pepper" ? "default" : "outline"}
+                           size="sm"
+                           onClick={() => handleDietChange(idx, "pepper")}
+                           className={member.diet === "pepper" ? "bg-orange-500 hover:bg-orange-600" : ""}
+                         >
+                           Pepper
+                         </Button>
+                         <Button
+                           variant={member.diet === "pepper_free" ? "default" : "outline"}
+                           size="sm"
+                           onClick={() => handleDietChange(idx, "pepper_free")}
+                           className={member.diet === "pepper_free" ? "bg-blue-500 hover:bg-blue-600" : ""}
+                         >
+                           Pepper-Free
+                         </Button>
+                       </div>
+                     </td>
+                   </tr>
+                   </React.Fragment>
                  ))}
                </tbody>
              </table>
@@ -700,29 +717,13 @@ if (res.ok) {
          </Card>
 
         <div className="flex gap-3">
-          <Button
-            onClick={handleSaveEdit}
+          <Button // Changed from handleSaveEdit to handleApproveAndDistribute
+            onClick={handleApproveAndDistribute}
+            disabled={verifying}
             size="lg"
             className="flex-1"
           >
-            <Save className="size-4" /> Save & Approve
-          </Button>
-          <Button
-            onClick={handleSendToFacilitator}
-            disabled={sendingToKitchen}
-            size="lg"
-            className="flex-1"
-            variant="outline"
-          >
-            <Send className="size-4" /> {sendingToKitchen ? "Sending..." : "Send to Facilitator"}
-          </Button>
-          <Button
-            onClick={handleSendToKitchen}
-            disabled={sendingToKitchen}
-            size="lg"
-            className="flex-1"
-          >
-            <ChefHat className="size-4" /> {sendingToKitchen ? "Sending..." : "Send to Kitchen"}
+            <CheckCircle className="size-4" /> {verifying ? "Verifying..." : "Approve & Distribute"}
           </Button>
           <Button
             variant="outline"
@@ -731,6 +732,15 @@ if (res.ok) {
             className="flex-1"
           >
             Cancel
+          </Button>
+          <Button // Added back a separate button for re-assigning to facilitator
+            onClick={handleSendToFacilitator}
+            disabled={submitting}
+            size="lg"
+            className="flex-1"
+            variant="outline"
+          >
+            <Send className="size-4" /> {submitting ? "Sending..." : "Re-assign to Facilitator"}
           </Button>
         </div>
       </div>
@@ -771,10 +781,10 @@ if (res.ok) {
                 const res = await fetch("/api/attendance/drafts", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
+                  body: JSON.stringify({ // Ensure diet is included if needed for draft creation
                     title: newTitle || "Attendance draft",
-                    classId: null,
-                    facilitatorId: null,
+                    classId: "none",
+                    facilitatorId: "unassigned",
                     members,
                   }),
                 });
@@ -782,7 +792,7 @@ if (res.ok) {
                   alert("Draft created and sent");
                   setNewTitle("");
                   setBulkStudentsText("");
-setEditableRows([
+                  setEditableRows([ // Reset editable rows to default
                      { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu", status: "present" },
                      { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu", status: "present" },
                      { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu", status: "present" },
@@ -835,19 +845,19 @@ setEditableRows([
                     const res = await fetch("/api/attendance/drafts", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      title: newTitle || "Attendance draft",
-                      classId: null,
-                      facilitatorId: null,
-                      members,
-                    }),
+                      body: JSON.stringify({ // Ensure diet is included if needed for draft creation
+                        title: newTitle || "Attendance draft",
+                        classId: "none",
+                        facilitatorId: "unassigned",
+                        members,
+                      }),
                     });
                     if (res.ok) {
                       alert("Draft created and sent");
                       setShowCreate(false);
                       setNewTitle("");
                       setBulkStudentsText("");
-setEditableRows([
+                      setEditableRows([ // Reset editable rows to default
                          { idNo: "101", classCode: "A-101", studentName: "John Smith", email: "john.smith@students.edu", status: "present" },
                          { idNo: "102", classCode: "B-102", studentName: "Maria Garcia", email: "maria.garcia@students.edu", status: "present" },
                          { idNo: "103", classCode: "C-103", studentName: "David Chen", email: "david.chen@students.edu", status: "present" },
@@ -877,7 +887,7 @@ setEditableRows([
         </Card>
       )}
 
-<div className="space-y-3">
+      <div className="space-y-3">
          <h3 className="text-sm font-medium">All Drafts</h3>
          {draftsError && (
            <p className="text-sm text-amber-600">Temporary connection issue - refresh to retry</p>

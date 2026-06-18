@@ -1,328 +1,72 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getFirebaseAdminDb, getProfileBySession } from "@/lib/firebase/admin";
-import type { AttendanceStatus } from "@/lib/types";
+import { NextRequest, NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebase-admin';
+import { getProfileBySession } from '@/lib/auth';
 
-type DraftStatus = "draft" | "submitted" | "approved" | "sent_to_kitchen";
-
-type DraftMember = {
-  studentId: string;
-  name: string;
-  status?: AttendanceStatus;
-  email?: string;
-};
-
-type DraftRecord = {
-  id: string;
-  title: string;
-  classId?: string | null;
-  facilitatorId?: string | null;
-  facilitatorEmail?: string;
-  members: DraftMember[];
-  status: DraftStatus;
-  createdBy?: string;
-  submittedBy?: string;
-  approvedBy?: string;
-  sentBy?: string;
-  institutionId?: string | null;
-  campusId?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  submittedAt?: string;
-  approvedAt?: string;
-  sentToKitchenAt?: string;
-  scheduledFor?: string;
-  [key: string]: unknown;
-};
-
-function normalizeMembers(value: unknown): DraftMember[] {
-  if (!Array.isArray(value)) return [];
-
-  return value
-    .map((member: any) => {
-      const studentId = String(member?.studentId ?? member?.id ?? "").trim();
-      const name = String(member?.name ?? "Student").trim();
-      const status = member?.status as AttendanceStatus | undefined;
-      const email = member?.email ? String(member.email).trim() : undefined;
-
-      return {
-        studentId,
-        name,
-        status: status || "absent",
-        ...(email ? { email } : {}),
-      };
-    })
-    .filter((member) => member.studentId.length > 0 && member.name.length > 0);
-}
-
-function normalizeStatus(value: unknown, fallback: DraftStatus = "draft"): DraftStatus {
-  const status = String(value || fallback);
-
-  if (["draft", "submitted", "approved", "sent_to_kitchen"].includes(status)) {
-    return status as DraftStatus;
-  }
-
-  return fallback;
-}
-
-async function getProfileCache(db: FirebaseFirestore.Firestore) {
-  const cache = new Map<string, any>();
-  const snapshot = await db.collection("profiles").get();
-
-  snapshot.docs.forEach((doc) => {
-    cache.set(doc.id, doc.data());
-  });
-
-  return cache;
-}
-
-async function serializeDrafts(docs: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>[], db: FirebaseFirestore.Firestore) {
-  const profiles = await getProfileCache(db);
-  const drafts = docs
-    .map((doc) => {
-      const data = doc.data() as DraftRecord;
-      return { ...data, id: doc.id };
-    })
-    .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")));
-
-  return drafts.map((draft) => {
-    const facilitatorId = String(draft.facilitatorId || "");
-    const profile = facilitatorId && facilitatorId !== "null" && facilitatorId !== "unassigned"
-      ? profiles.get(facilitatorId)
-      : null;
-
-    return {
-      ...draft,
-      members: Array.isArray(draft.members) ? draft.members : [],
-      status: normalizeStatus(draft.status, "draft"),
-      facilitatorEmail: profile?.email,
-    };
-  });
-}
-
-function canReadDraft(profile: Awaited<ReturnType<typeof getProfileBySession>>, draft: DraftRecord, filters: { facilitatorId?: string | null; status?: string | null }) {
-  if (profile?.role === "super_admin") return true;
-
-  if (profile?.role === "kitchen_manager") {
-    return draft.status === "sent_to_kitchen";
-  }
-
-  if (profile?.role === "facilitator") {
-    if (filters.facilitatorId && filters.facilitatorId !== profile.id) return false;
-    return draft.facilitatorId === profile.id;
-  }
-
-  return false;
-}
-
-function filterDraft(draft: DraftRecord, filters: { facilitatorId?: string | null; status?: string | null; classId?: string | null; scheduledFor?: string | null; includeAll?: string | null }) {
-  if (filters.facilitatorId && String(draft.facilitatorId || "") !== filters.facilitatorId) return false;
-  if (filters.status && String(draft.status || "") !== filters.status) return false;
-  if (filters.classId && String(draft.classId || "") !== filters.classId) return false;
-  if (filters.scheduledFor && String(draft.scheduledFor || "") !== filters.scheduledFor) return false;
-
-  if (!filters.includeAll && filters.facilitatorId === null && filters.status === null && filters.classId === null && filters.scheduledFor === null) {
-    const today = new Date().toISOString().split("T")[0];
-    return String(draft.scheduledFor || "") === today;
-  }
-
-  return true;
-}
-
-export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const includeAll = url.searchParams.get("includeAll");
-  const facilitatorId = url.searchParams.get("facilitatorId");
-  const status = url.searchParams.get("status");
-  const classId = url.searchParams.get("classId");
-  const scheduledFor = url.searchParams.get("scheduledFor");
-
+/**
+ * GET /api/attendance/drafts
+ * Facilitators call this to see templates assigned to them.
+ */
+export async function GET(req: NextRequest) {
   try {
-    const profile = await getProfileBySession(await cookies());
-    if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const profile = await getProfileBySession();
+    if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const db = await getFirebaseAdminDb();
-    if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status') || 'draft';
+    const includeAll = searchParams.get('includeAll') === 'true';
 
-    const snapshot = await db.collection("attendanceDrafts").orderBy("updatedAt", "desc").get();
-    const filters = {
-      includeAll,
-      facilitatorId,
-      status,
-      classId,
-      scheduledFor,
-    };
+    // Query the attendanceDrafts collection
+    let draftsQuery: FirebaseFirestore.Query = adminDb.collection('attendanceDrafts');
 
-    const visibleDocs = snapshot.docs.filter((doc) => {
-      const draft = doc.data() as DraftRecord;
-      return canReadDraft(profile, draft, filters) && filterDraft(draft, filters);
-    });
-
-    return NextResponse.json({
-      rows: await serializeDrafts(visibleDocs, db),
-      total: visibleDocs.length,
-    });
-  } catch (error: any) {
-    const code = (error?.code || "").toUpperCase();
-    if (code === "RESOURCE_EXHAUSTED" || error?.code === 8) {
-      return NextResponse.json({ error: "Quota exceeded. Please try again later." }, { status: 429 });
+    // If not including all, filter by the requested status (default 'draft')
+    if (!includeAll) {
+      draftsQuery = draftsQuery.where('status', '==', status);
     }
 
-    console.error("Attendance drafts fetch error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const profile = await getProfileBySession(await cookies());
-
-    if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!["super_admin", "facilitator"].includes(profile.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // If the requester is a facilitator, filter specifically by their Firebase UID
+    if (profile.role === 'facilitator') {
+      draftsQuery = draftsQuery.where('facilitatorId', '==', profile.uid);
     }
 
-    const members = normalizeMembers(body.members);
-    if (members.length === 0) {
-      return NextResponse.json({ error: "At least one valid member is required" }, { status: 400 });
-    }
+    const snapshot = await draftsQuery.get();
+    const drafts = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
 
-    const db = await getFirebaseAdminDb();
-    if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
-
-    const now = new Date().toISOString();
-    const facilitatorId = profile.role === "facilitator"
-      ? profile.id
-      : body.facilitatorId === undefined || body.facilitatorId === null
-        ? null
-        : String(body.facilitatorId);
-    const title = String(body.title || "Attendance draft").trim() || "Attendance draft";
-    const draft: DraftRecord = {
-      id: ref.id,
-      title,
-      classId: body.classId ?? null,
-      facilitatorId,
-      members,
-      status: normalizeStatus(body.status, "draft"),
-      institutionId: body.institutionId ?? profile.institutionId ?? null,
-      campusId: body.campusId ?? null,
-      createdBy: profile.id,
-      createdAt: now,
-      updatedAt: now,
-      scheduledFor: String(body.scheduledFor || new Date().toISOString().split("T")[0]),
-    };
-
-    const ref = await db.collection("attendanceDrafts").add(draft);
-
-    return NextResponse.json({
-      success: true,
-      draft,
-    });
-  } catch (error: any) {
-    const code = (error?.code || "").toUpperCase();
-    if (code === "RESOURCE_EXHAUSTED" || error?.code === 8) {
-      return NextResponse.json({ error: "Quota exceeded. Please try again later." }, { status: 429 });
-    }
-
-    console.error("Attendance draft create error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
-    const profile = await getProfileBySession(await cookies());
-
-    if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const db = await getFirebaseAdminDb();
-    if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
-
-    const docRef = db.collection("attendanceDrafts").doc(id);
-    const doc = await docRef.get();
-    if (!doc.exists) return NextResponse.json({ error: "Draft not found" }, { status: 404 });
-
-    const current = doc.data() as DraftRecord;
-
-    if (profile.role === "facilitator" && current.facilitatorId !== profile.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    if (!["super_admin", "facilitator"].includes(profile.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const updates: Partial<DraftRecord> = {};
-    const nextStatus = body.status ? normalizeStatus(body.status, current.status || "draft") : current.status;
-
-    if (Array.isArray(body.members)) {
-      updates.members = normalizeMembers(body.members);
-    }
-
-    if (body.status) {
-      updates.status = nextStatus;
-    }
-
-    if (profile.role === "super_admin" && body.facilitatorId !== undefined) {
-      updates.facilitatorId = body.facilitatorId === null ? null : String(body.facilitatorId);
-    }
-
-    if (nextStatus === "submitted") {
-      updates.submittedAt = new Date().toISOString();
-      updates.submittedBy = profile.id;
-    }
-
-    if (profile.role === "super_admin" && nextStatus === "approved") {
-      updates.approvedAt = new Date().toISOString();
-      updates.approvedBy = profile.id;
-    }
-
-    if (profile.role === "super_admin" && nextStatus === "sent_to_kitchen") {
-      updates.sentToKitchenAt = new Date().toISOString();
-      updates.sentBy = profile.id;
-    }
-
-    updates.updatedAt = new Date().toISOString();
-
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
-    }
-
-    await docRef.set(updates, { merge: true });
-
-    const updatedDoc = await docRef.get();
-    const [updatedDraft] = await serializeDrafts([updatedDoc], db);
-
-    return NextResponse.json({ success: true, draft: updatedDraft });
-  } catch (error: any) {
-    const code = (error?.code || "").toUpperCase();
-    if (code === "RESOURCE_EXHAUSTED" || error?.code === 8) {
-      return NextResponse.json({ error: "Quota exceeded. Please try again later." }, { status: 429 });
-    }
-
-    console.error("Attendance draft update error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params;
-    const profile = await getProfileBySession(await cookies());
-
-    if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (profile.role !== "super_admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-    const db = await getFirebaseAdminDb();
-    if (!db) return NextResponse.json({ error: "Firebase Admin is not configured." }, { status: 500 });
-
-    await db.collection("attendanceDrafts").doc(id).delete();
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ rows: drafts });
   } catch (error) {
-    console.error("Attendance draft delete error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error('Error fetching attendance drafts:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/attendance/drafts
+ * Admins call this to create a student list and assign it to a facilitator.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const profile = await getProfileBySession();
+    if (!profile || (profile.role !== 'super_admin' && profile.role !== 'campus_admin')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { title, facilitatorId, members, classId, institutionId } = await req.json();
+    const draftRef = adminDb.collection('attendanceDrafts').doc();
+    const now = new Date().toISOString();
+
+    // facilitatorId MUST be the Firebase UID of the target facilitator
+    // This ensures the facilitator's GET request (which filters by UID) finds the record.
+    await draftRef.set({
+      id: draftRef.id, title, facilitatorId, members, classId,
+      status: 'draft', createdBy: profile.uid, institutionId, createdAt: now, updatedAt: now
+    });
+
+    return NextResponse.json({ success: true, id: draftRef.id });
+  } catch (error) {
+    // Add detailed logging for the POST request
+    console.error('Error creating attendance draft:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

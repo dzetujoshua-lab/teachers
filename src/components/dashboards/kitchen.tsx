@@ -1,7 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { Soup, UtensilsCrossed, Flame, Trash2, ChefHat, ClipboardCheck } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Soup, UtensilsCrossed, Flame, Trash2, ChefHat, ClipboardCheck, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -10,86 +10,159 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { relativeTime } from "@/lib/utils";
-import type { AttendanceStatus } from "@/lib/types";
 import { useLiveData } from "@/lib/hooks/use-live-data";
+import { collection, query, where, onSnapshot, orderBy, limit, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase"; // Assuming you have client-side Firebase initialized here
+import { useAuth } from "@/lib/hooks/use-auth"; // Assuming a hook to get current user's UID
+import type { AttendanceStatus } from "@/lib/types";
 
-type MealRow = { id: string; meal: string; name: string; preference: string; estimated: number; prepared: number; served: number };
+type MealRow = { id: string; meal: string; name: string; preference: string; estimated: number; prepared: number; served: number }; // This type might become obsolete or change
+type MenuDocument = { id: string; week_start: string; menu_url: string; uploaded_by: string; };
 type MealSplitRow = { id: string; name: string; value: number; color: string };
 type AttendanceDraft = { id: string; title: string; members: { studentId: string; name: string; status?: AttendanceStatus }[]; createdAt: string };
 
 export function KitchenDashboard() {
-   const [publishing, setPublishing] = React.useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [mealStats, setMealStats] = useState({ pepper: 0, pepper_free: 0, total: 0 });
+  const [currentMenu, setCurrentMenu] = useState<MenuDocument | null>(null);
+  const [loadingMealStats, setLoadingMealStats] = useState(true);
+  const [loadingMenu, setLoadingMenu] = useState(true);
+  const [attendanceDrafts, setAttendanceDrafts] = useState<AttendanceDraft[]>([]);
+  const { user } = useAuth(); // Assuming useAuth provides the current user object
 
-const { data: mealsData, loading: mealsLoading } = useLiveData<{ rows: MealRow[] }>(
-      "/api/admin/firestore?collection=meals",
-      { pollInterval: 60000 }
+  // Real-time listener for meal aggregation
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const q = query(
+      collection(db, "attendance_records"),
+      where("date", "==", today),
+      where("is_verified", "==", true),
+      where("status", "==", "present")
     );
 
-    const { data: splitData } = useLiveData<{ rows: MealSplitRow[] }>(
-      "/api/admin/firestore?collection=mealSplit",
-      { pollInterval: 60000 }
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const totals = {
+        pepper: 0,
+        pepper_free: 0,
+        total: 0
+      };
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.diet === "pepper") totals.pepper++;
+        if (data.diet === "pepper_free") totals.pepper_free++;
+        totals.total++;
+      });
+
+      setMealStats(totals);
+      setLoadingMealStats(false);
+    }, (error) => {
+      console.error("Error fetching kitchen stats:", error);
+      setLoadingMealStats(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch latest weekly menu
+  useEffect(() => {
+    const fetchLatestMenu = async () => {
+      setLoadingMenu(true);
+      try {
+        const q = query(
+          collection(db, "menus"),
+          orderBy("week_start", "desc"), // Assuming week_start is sortable (e.g., ISO string)
+          limit(1)
+        );
+        const querySnapshot = await getDocs(q); // Use getDocs for a one-time fetch
+        if (!querySnapshot.empty) {
+          setCurrentMenu(querySnapshot.docs[0].data() as MenuDocument);
+        } else {
+          setCurrentMenu(null);
+        }
+      } catch (error) {
+        console.error("Error fetching latest menu:", error);
+      } finally {
+        setLoadingMenu(false);
+      }
+    };
+    fetchLatestMenu();
+  }, []);
+
+  // Real-time listener for attendance drafts sent specifically to the kitchen
+  useEffect(() => {
+    const q = query(
+      collection(db, "attendanceDrafts"),
+      where("status", "==", "sent_to_kitchen")
     );
 
-    const { data: draftsData, loading: draftsLoading, lastUpdated } = useLiveData<{ rows: AttendanceDraft[] }>(
-      "/api/attendance/drafts?status=sent_to_kitchen",
-      { pollInterval: 60000 }
-    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const drafts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceDraft));
+      setAttendanceDrafts(drafts);
+    });
 
-   const menu = mealsData?.rows || [];
-   const mealSplit = splitData?.rows || [];
-   const attendanceDrafts = draftsData?.rows || [];
-   const loading = mealsLoading || draftsLoading;
+    return () => unsubscribe();
+  }, []);
 
-   const handlePublishMenu = async () => {
-     setPublishing(true);
-     try {
-       const res = await fetch("/api/kitchen/publish-menu", {
-         method: "POST",
-         headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({ menu }),
-       });
-       if (res.ok) {
-         alert("Today's menu published successfully!");
-       } else {
-         alert("Failed to publish menu. Please try again.");
-       }
-     } catch (err) {
-       console.error("Error publishing menu:", err);
-       alert("Error publishing menu");
-     } finally {
-       setPublishing(false);
-     }
-   };
+  // Placeholder for the "Today's menu" section.
+  // In a real system, this would parse the uploaded menu file (PDF/Image)
+  // or fetch structured menu data if it were stored in Firestore.
+  // For now, we'll just show a placeholder or a link to the uploaded menu.
+  const dummyMenuDisplay = [
+    { id: "1", meal: "breakfast", name: "Scrambled Eggs & Toast", preference: "pepper", estimated: mealStats.pepper + mealStats.pepper_free, prepared: mealStats.pepper + mealStats.pepper_free, served: mealStats.pepper + mealStats.pepper_free },
+    { id: "2", meal: "lunch", name: "Chicken Stir-fry", preference: "pepper", estimated: mealStats.pepper, prepared: mealStats.pepper, served: mealStats.pepper },
+    { id: "3", meal: "lunch", name: "Vegetable Curry", preference: "pepper_free", estimated: mealStats.pepper_free, prepared: mealStats.pepper_free, served: mealStats.pepper_free },
+  ];
+
+  const loading = loadingMealStats || loadingMenu;
+
+  const mealSplitDataForChart: MealSplitRow[] = [
+    { id: "pepper", name: "Pepper", value: mealStats.pepper, color: "var(--color-orange)" },
+    { id: "pepper_free", name: "Pepper-Free", value: mealStats.pepper_free, color: "var(--color-blue)" },
+  ];
 
    return (
      <div className="space-y-6">
        <PageHeader
          title="Kitchen Operations"
          description="Nkyemu Main Campus · today's service"
-         liveData={{ lastUpdated: loading ? null : new Date(), loading: false }}
+         liveData={{ lastUpdated: new Date(), loading: loading }}
        >
-         <Button variant="wine" size="sm" onClick={handlePublishMenu} disabled={publishing}>
-           <ChefHat className="size-4" /> {publishing ? "Publishing..." : "Publish menu"}
+         <Button variant="wine" size="sm" onClick={() => alert("Navigate to menu upload page")} disabled={publishing}>
+           <ChefHat className="size-4" /> Upload Weekly Menu
          </Button>
        </PageHeader>
 
        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-         <StatCard index={0} label="Meals requested" value={loading ? "..." : String(mealSplit.reduce((sum, m) => sum + m.value, 0))} delta={4} icon={UtensilsCrossed} accent="wine" />
-         <StatCard index={1} label="Pepper demand" value={mealSplit.length > 0 ? String(mealSplit.find(m => m.name === "Pepper")?.value || 0) : "..."} delta={3} icon={Flame} accent="wine" />
-         <StatCard index={2} label="Meals served" value={menu.length > 0 ? String(menu.reduce((sum, m) => sum + m.served, 0)) : "..."} delta={2} icon={Soup} accent="amber" />
+         <StatCard index={0} label="Meals requested" value={loadingMealStats ? "..." : String(mealStats.total)} delta={4} icon={UtensilsCrossed} accent="wine" />
+         <StatCard index={1} label="Pepper demand" value={loadingMealStats ? "..." : String(mealStats.pepper)} delta={3} icon={Flame} accent="wine" />
+         <StatCard index={2} label="Pepper-Free demand" value={loadingMealStats ? "..." : String(mealStats.pepper_free)} delta={2} icon={Soup} accent="amber" />
          <StatCard index={3} label="Food waste" value="..." delta={-8} icon={Trash2} accent="neutral" hint="vs last week" />
        </div>
 
        <div className="grid gap-6 lg:grid-cols-3">
          <SectionCard
-           title="Today's menu"
-           action="Edit menu"
-           actionHref="/dashboard/kitchen_manager/menu"
+           title="Weekly Menu"
+           action="View Menu File"
+           actionHref={currentMenu?.menu_url || "#"}
            className="lg:col-span-2"
            noPadding
          >
-           <div className="divide-y divide-border/60">
-             {menu.map((m) => {
+           {loadingMenu ? (
+             <div className="flex items-center justify-center p-6">
+               <Loader2 className="size-5 animate-spin text-muted-foreground" />
+             </div>
+           ) : currentMenu ? (
+             <div className="p-4">
+               <p className="text-sm font-medium">Menu for week starting: {currentMenu.week_start}</p>
+               <p className="text-xs text-muted-foreground">Uploaded by: {currentMenu.uploaded_by}</p>
+               <a href={currentMenu.menu_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm mt-2 block">
+                 Download Menu File (PDF/Image)
+               </a>
+               {/* This part would ideally parse the menu file or fetch structured menu data */}
+               <div className="divide-y divide-border/60 mt-4">
+             {dummyMenuDisplay.map((m) => {
                const pct = m.estimated > 0 ? Math.round((m.served / m.estimated) * 100) : 0;
                return (
                  <div key={m.id} className="px-6 py-4">
@@ -118,11 +191,12 @@ const { data: mealsData, loading: mealsLoading } = useLiveData<{ rows: MealRow[]
                    </div>
                  </div>
                );
-             })}
-             {menu.length === 0 && !loading && (
-               <div className="px-6 py-4 text-xs text-muted-foreground">No meal data from Firestore.</div>
-             )}
-           </div>
+             })} {/* End dummyMenuDisplay map */}
+               </div>
+             </div>
+           ) : (
+             <div className="px-6 py-4 text-xs text-muted-foreground">No weekly menu published yet.</div>
+           )}
          </SectionCard>
 
          <SectionCard title="Received Attendance" action="View all" actionHref="/dashboard/kitchen_manager/attendance">
@@ -146,8 +220,8 @@ const { data: mealsData, loading: mealsLoading } = useLiveData<{ rows: MealRow[]
          </SectionCard>
        </div>
 
-       <SectionCard title="Preference split" action="Analytics" actionHref="/dashboard/kitchen_manager/analytics">
-         <MealDonutChart data={mealSplit} />
+       <SectionCard title="Today's Meal Preference Split" action="Analytics" actionHref="/dashboard/kitchen_manager/analytics">
+         <MealDonutChart data={mealSplitDataForChart} />
          <div className="mt-4 rounded-lg bg-amber-500/5 p-3 text-xs text-muted-foreground">
            <span className="font-medium text-amber-500">AI tip:</span> Live preference analytics updating in real-time.
          </div>

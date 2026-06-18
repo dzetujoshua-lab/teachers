@@ -113,7 +113,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (!canRead) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const [serialized] = await serializeDraft(doc, db);
+    const serialized = await serializeDraft(doc, db);
 
     return NextResponse.json({ draft: serialized });
   } catch (error: any) {

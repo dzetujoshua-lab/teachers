@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/ui/input"; // Keep this import
 import { Label } from "@/components/ui/label";
 import { AttendanceStatus } from "@/lib/types";
 import { useLiveData } from "@/lib/hooks/use-live-data";
@@ -16,6 +16,7 @@ interface AttendanceMember {
   name: string;
   email?: string;
   status: AttendanceStatus;
+  diet: "pepper" | "pepper_free"; // Added dietary preference
 }
 
 interface AttendanceSessionData {
@@ -69,11 +70,12 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
     
     React.useEffect(() => {
       if (liveSession && !session) {
-        const members = (liveSession.roster || []).map((m: any) => ({
+const members: AttendanceMember[] = (liveSession.roster || []).map((m: any) => ({
           studentId: m.studentId,
           name: m.name || "Student",
           email: m.email,
           status: "absent" as AttendanceStatus,
+          diet: "pepper" as "pepper" | "pepper_free",
         }));
         setSession({
           id: liveSession.id,
@@ -170,6 +172,15 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
      setSession({ ...session, members: updatedMembers });
    };
 
+   const handleMarkDiet = (studentId: string, diet: "pepper" | "pepper_free") => {
+     if (!session || !session.members) return;
+
+     const updatedMembers = session.members.map(m =>
+       m.studentId === studentId ? { ...m, diet } : m
+     );
+     setSession({ ...session, members: updatedMembers });
+   };
+
    const handleCreateStudent = async () => {
      if (!newStudent.studentId || !newStudent.name) {
        alert("Student ID and name are required");
@@ -195,7 +206,8 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
                studentId: newStudent.studentId, 
                name: newStudent.name, 
                email: newStudent.email,
-               status: "present" as AttendanceStatus,
+               status: "present",
+               diet: "pepper", // Default diet for new student
              }],
            });
          }
@@ -223,7 +235,7 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
 
        let draftId = null;
        const existingDraft = draftCheckData.rows?.find((d: any) => 
-         d.status === "draft" && (d.classId === session.id || d.title?.includes(session.course))
+         d.status === "draft" && (d.classId === session.id || (session.course && d.title?.includes(session.course)))
        );
 
        if (!existingDraft) {
@@ -231,7 +243,7 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-             title: `${session.course} - ${session.room} - ${new Date().toLocaleDateString()}`,
+             title: `${session.course || "Attendance"} - ${session.room || "Room"} - ${new Date().toLocaleDateString()}`,
               classId: session.id,
               facilitatorId: uid,
 
@@ -240,6 +252,7 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
                studentId: m.studentId,
                name: m.name,
                status: m.status,
+               diet: m.diet, // Include diet preference
              })),
            }),
          });
@@ -267,6 +280,7 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
              metadata: {
                status: member.status,
              },
+             diet: member.diet, // Include diet preference
            })),
          }),
        });
@@ -458,6 +472,24 @@ export function FacilitatorAttendanceDashboard({ uid }: { uid: string }) {
                        onClick={() => handleMarkAttendance(member.studentId, "absent")}
                      >
                        <X className="size-4" />
+                     </Button>
+                   </div>
+                   <div className="flex gap-2">
+                     <Button
+                       variant={member.diet === "pepper" ? "default" : "outline"}
+                       size="sm"
+                       onClick={() => handleMarkDiet(member.studentId, "pepper")}
+                       className={member.diet === "pepper" ? "bg-orange-500 hover:bg-orange-600" : ""}
+                     >
+                       Pepper
+                     </Button>
+                     <Button
+                       variant={member.diet === "pepper_free" ? "default" : "outline"}
+                       size="sm"
+                       onClick={() => handleMarkDiet(member.studentId, "pepper_free")}
+                       className={member.diet === "pepper_free" ? "bg-blue-500 hover:bg-blue-600" : ""}
+                     >
+                       Pepper-Free
                      </Button>
                    </div>
                  </div>

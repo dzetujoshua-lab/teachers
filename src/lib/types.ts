@@ -1,5 +1,6 @@
 export type Role =
   | "super_admin"
+  | "campus_admin"
   | "facilitator"
   | "kitchen_manager"
   | "security_officer";

@@ -75,7 +75,7 @@ export async function getProfileBySession(cookies: { get(name: string): { value:
   const cached = profileCache.get(token);
   if (cached && cached.expiresAt > Date.now()) return cached.profile;
 
-  const decoded = await auth.verifyIdToken(token);
+  const decoded = await auth.verifySessionCookie(token);
   try {
     const snapshot = await db.collection("profiles").doc(decoded.uid).get();
     const data = snapshot.data() as Omit<FirebaseProfile, "id"> | undefined;

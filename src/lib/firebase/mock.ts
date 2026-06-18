@@ -1,4 +1,4 @@
-type Role = "super_admin" | "facilitator" | "kitchen_manager" | "security_officer";
+type Role = "super_admin" | "campus_admin" | "facilitator" | "kitchen_manager" | "security_officer";
 
 interface MockUser {
   uid: string;
@@ -21,6 +21,7 @@ function generateUid(): string {
 function createPlatformUserId(role: Role, uid: string): string {
   const ROLE_PREFIX: Record<Role, string> = {
     super_admin: "SA",
+    campus_admin: "CA",
     facilitator: "FAC",
     kitchen_manager: "KIT",
     security_officer: "SEC",
@@ -69,7 +70,7 @@ export function createMockUser(input: {
   }
   const uid = generateUid();
   const platformUserId = createPlatformUserId(input.role, uid);
-  const avatarColor = input.role === "super_admin" || input.role === "kitchen_manager" || input.role === "security_officer" ? "#c52a58" : "#f59e0b";
+  const avatarColor = input.role === "super_admin" || input.role === "kitchen_manager" || input.role === "security_officer" || input.role === "campus_admin" ? "#c52a58" : "#f59e0b";
 
   mockUsers[uid] = {
     uid,
