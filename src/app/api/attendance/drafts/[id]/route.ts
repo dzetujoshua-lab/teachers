@@ -7,12 +7,12 @@ import { validateAttendanceMarks, validateOverallDraftStatus } from '@/lib/atten
  * GET /api/attendance/drafts/[id]
  * Retrieves a single attendance draft.
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const profile = await getProfileBySession();
     if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const draftId = params.id;
+    const { id: draftId } = await params;
     const doc = await adminDb.collection('attendanceDrafts').doc(draftId).get();
 
     if (!doc.exists) {
@@ -49,12 +49,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
  * Facilitators call this to mark & submit attendance.
  * Admins call this to reassign or confirm drafts.
  */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const profile = await getProfileBySession();
     if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const draftId = params.id;
+    const { id: draftId } = await params;
     const draftRef = adminDb.collection('attendanceDrafts').doc(draftId);
     const draftSnapshot = await draftRef.get();
 

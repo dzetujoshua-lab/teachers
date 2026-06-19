@@ -1248,7 +1248,7 @@ export function SectionShell({ role, title, section }: { role: Role; title: stri
         }
         if (role === "campus_admin") {
           if (section === "classes") return <AdminClassesDashboard />;
-          if (section === "drafts") return <FacilitatorDraftsDashboard />;
+          if (section === "drafts") return <AdminDraftsDashboard />;
           return <CampusAdminModules section={section} query={query} pushToast={(t) => setToast(t)} liveFeed={liveFeed} liveSessions={liveSessions} departments={departments} />;
         }
         if (role === "facilitator") {
