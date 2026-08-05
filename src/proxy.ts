@@ -13,6 +13,7 @@ export function proxy(request: NextRequest) {
 
   const isAuthPage = request.nextUrl.pathname === "/login";
   const isProtected = request.nextUrl.pathname.startsWith("/dashboard");
+  const isSessionExpired = request.nextUrl.searchParams.get("session_expired") === "1";
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
@@ -20,7 +21,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthPage) {
+  if (user && isAuthPage && !isSessionExpired) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

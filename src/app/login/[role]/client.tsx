@@ -6,6 +6,10 @@ import { ArrowRight, Loader2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
+
+function isFirebaseError(error: unknown): error is { code: string; message: string } {
+  return typeof error === "object" && error !== null && "code" in error && "message" in error;
+}
 import { Logo } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,20 +18,6 @@ import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
 import { ROLE_LABELS } from "@/lib/roles";
 import { createPlatformUserId } from "@/lib/user-ids";
 import type { Role } from "@/lib/types";
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
-
-async function mockCreateSession(idToken: string) {
-  const response = await fetch("/api/auth/session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken }),
-  });
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(payload?.error ?? "Unable to create a secure session.");
-  }
-}
 
 interface RoleLoginClientProps {
   role: Role;
@@ -50,6 +40,7 @@ export function RoleLoginClient({ role }: RoleLoginClientProps) {
     const response = await fetch("/api/auth/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ idToken }),
     });
 
@@ -92,39 +83,6 @@ export function RoleLoginClient({ role }: RoleLoginClientProps) {
         return;
       }
 
-      if (USE_MOCK) {
-        const { loginMockUser, createMockSession } = await import("@/lib/firebase/mock");
-        let user;
-        try {
-          user = loginMockUser(email, password);
-        } catch (err) {
-          const error = err as Error;
-          if (error.message === "user-not-found") {
-            setError("No account found with that email.");
-          } else if (error.message === "wrong-password") {
-            setError("Incorrect password.");
-          } else {
-            setError(error.message || "Unable to sign in.");
-          }
-          setLoading(false);
-          return;
-        }
-        if (user.role !== role) {
-          setError(`This account belongs to ${ROLE_LABELS[user.role]}. Use that role's login page.`);
-          setLoading(false);
-          return;
-        }
-        const token = createMockSession(user);
-        await mockCreateSession(token);
-        setStatus(`Signed in as ${user.platformUserId}. Redirecting...`);
-        if (user.role === "facilitator") {
-          router.push(`/dashboard/facilitator/${user.platformUserId}`);
-        } else {
-          router.push(`/dashboard/${user.role}`);
-        }
-        return;
-      }
-
       const auth = getFirebaseAuth();
       const db = getFirebaseDb();
       if (!auth || !db) {
@@ -133,46 +91,41 @@ export function RoleLoginClient({ role }: RoleLoginClientProps) {
         return;
       }
 
+      console.log("onLogin: attempting signInWithEmailAndPassword for", email);
       const credential = await signInWithEmailAndPassword(auth, email.toLowerCase().trim(), password);
+      console.log("onLogin: signIn succeeded", credential.user.uid);
       const token = await credential.user.getIdToken();
+      console.log("onLogin: obtained idToken (trimmed)", token?.slice?.(0, 8));
 
-      const profileSnapshot = await getDoc(doc(db, "profiles", credential.user.uid));
-      const profile = profileSnapshot.data() as { role?: Role; forcePasswordReset?: boolean; platformUserId?: string } | undefined;
-
-      if (!profile?.role) {
-        setError("Your account does not have a platform profile yet.");
-        setLoading(false);
-        return;
-      }
-
-      if (profile.role !== role) {
-        setError(`This account belongs to ${ROLE_LABELS[profile.role]}. Use that role's login page.`);
-        setLoading(false);
-        return;
-      }
-
-      if (profile.forcePasswordReset) {
-        router.push("/change-password");
-        return;
-      }
-
+      // Create a secure server-side session first to avoid client Firestore permission
+      // issues (server will read the profile using admin privileges and redirect appropriately).
+      console.log("onLogin: creating server session");
       await createSession(token);
-      setStatus(`Signed in as ${profile.platformUserId ?? credential.user.uid}. Redirecting...`);
-      if (profile.role === "facilitator") {
-        router.push(`/dashboard/facilitator/${profile.platformUserId ?? credential.user.uid}`);
+      console.log("onLogin: server session created");
+
+      // Redirect directly to the correct dashboard path to avoid extra redirects or 404s
+      setStatus(`Signed in as ${credential.user.uid}. Redirecting...`);
+      if (role === "facilitator") {
+        router.push(`/dashboard/facilitator/${credential.user.uid}`);
       } else {
-        router.push(`/dashboard/${profile.role}`);
+        router.push(`/dashboard/${role}`);
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unable to sign in.";
-      // Handle specific Firebase errors
-      if (errorMessage.includes("user-not-found")) {
-        setError("No account found with that email.");
-      } else if (errorMessage.includes("wrong-password")) {
-        setError("Incorrect password.");
-      } else if (errorMessage.includes("too-many-requests")) {
-        setError("Too many failed login attempts. Try again later.");
+      console.error("Login request failed:", err);
+      if (isFirebaseError(err)) {
+        if (err.code === "auth/user-not-found") {
+          setError("No account found with that email.");
+        } else if (err.code === "auth/wrong-password") {
+          setError("Incorrect password.");
+        } else if (err.code === "auth/too-many-requests") {
+          setError("Too many failed login attempts. Try again later.");
+        } else if (err.code === "auth/permission-denied") {
+          setError("Permission denied. Confirm your Firebase security rules and auth claims.");
+        } else {
+          setError(`Firebase auth error: ${err.code}. ${err.message}`);
+        }
       } else {
+        const errorMessage = err instanceof Error ? err.message : "Unable to sign in.";
         setError(errorMessage);
       }
     } finally {
@@ -209,49 +162,6 @@ export function RoleLoginClient({ role }: RoleLoginClientProps) {
       if (password !== confirmPassword) {
         setError("Passwords do not match.");
         setLoading(false);
-        return;
-      }
-
-      if (USE_MOCK) {
-        const { createMockUser, createMockSession } = await import("@/lib/firebase/mock");
-        let platformUserId: string;
-        try {
-          const result = createMockUser({
-            name,
-            email,
-            password,
-            role,
-            department,
-            institutionId,
-          });
-          platformUserId = result.platformUserId;
-        } catch (err) {
-          const error = err as Error;
-          if (error.message === "email-already-in-use") {
-            setError("An account with that email already exists.");
-          } else {
-            setError(error.message || "Unable to create account.");
-          }
-          setLoading(false);
-          return;
-        }
-        const mockUser = {
-          uid: platformUserId,
-          platformUserId,
-          email: email.toLowerCase().trim(),
-          role,
-          name: name.trim(),
-          password: "",
-          createdAt: new Date().toISOString(),
-        };
-        const token = createMockSession(mockUser);
-        await mockCreateSession(token);
-        setStatus(`Account created with ID ${platformUserId}. Redirecting...`);
-        if (role === "facilitator") {
-          router.push(`/dashboard/facilitator/${platformUserId}`);
-        } else {
-          router.push(`/dashboard/${role}`);
-        }
         return;
       }
 
@@ -306,15 +216,19 @@ export function RoleLoginClient({ role }: RoleLoginClientProps) {
         router.push(`/dashboard/${role}`);
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unable to create account.";
-      // Handle specific Firebase errors
-      if (errorMessage.includes("email-already-in-use")) {
-        setError("An account with that email already exists.");
-      } else if (errorMessage.includes("weak-password")) {
-        setError("Password is too weak. Use at least 8 characters with uppercase and numbers.");
-      } else if (errorMessage.includes("invalid-email")) {
-        setError("Invalid email format.");
+      console.error("Signup request failed:", err);
+      if (isFirebaseError(err)) {
+        if (err.code === "auth/email-already-in-use") {
+          setError("An account with that email already exists.");
+        } else if (err.code === "auth/weak-password") {
+          setError("Password is too weak. Use at least 8 characters with uppercase and numbers.");
+        } else if (err.code === "auth/invalid-email") {
+          setError("Invalid email format.");
+        } else {
+          setError(`Firebase auth error: ${err.code}. ${err.message}`);
+        }
       } else {
+        const errorMessage = err instanceof Error ? err.message : "Unable to create account.";
         setError(errorMessage);
       }
     } finally {

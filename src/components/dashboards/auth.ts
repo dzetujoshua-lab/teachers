@@ -34,7 +34,7 @@ export async function getProfileBySession(): Promise<UserProfile | null> {
     }
 
     // Fetch the user's role and other profile data from Firestore
-    const userDoc = await adminDb.collection('users').doc(decodedClaims.uid).get();
+    const userDoc = await adminDb.collection('profiles').doc(decodedClaims.uid).get();
     if (!userDoc.exists || !userDoc.data()?.role) {
       return null; // User document or role not found
     }

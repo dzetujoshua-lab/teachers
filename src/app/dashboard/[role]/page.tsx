@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { ROLE_LABELS } from "@/lib/roles";
 import type { Role } from "@/lib/types";
 import { SuperAdminDashboard } from "@/components/dashboards/super-admin";
@@ -21,6 +22,8 @@ export default async function Overview({ params }: { params: Promise<{ role: Rol
       return <KitchenDashboard />;
     case "security_officer":
       return <SecurityDashboard />;
+    case "campus_admin":
+      redirect("/dashboard/campus_admin/classes");
     default:
       return null;
   }

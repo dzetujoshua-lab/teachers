@@ -10,7 +10,4 @@ export const FIREBASE_CONFIG = {
 export const FIREBASE_ADMIN_CLIENT_EMAIL = process.env.FIREBASE_ADMIN_CLIENT_EMAIL ?? "";
 export const FIREBASE_ADMIN_PRIVATE_KEY = (process.env.FIREBASE_ADMIN_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
 
-// Production only: no mock mode fallback
-export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
-
 export const FIREBASE_SESSION_COOKIE = "__session";

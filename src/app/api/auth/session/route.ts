@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { FIREBASE_SESSION_COOKIE, USE_MOCK } from "@/lib/firebase/config";
+import { FIREBASE_SESSION_COOKIE } from "@/lib/firebase/config";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 5;
@@ -13,33 +13,28 @@ export async function POST(request: Request) {
   }
 
   try {
+    console.debug("[auth/session] POST received; creating session cookie");
     const response = NextResponse.json({ success: true });
 
-    if (USE_MOCK) {
-      response.cookies.set(FIREBASE_SESSION_COOKIE, idToken, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: COOKIE_MAX_AGE,
-        path: "/",
-      });
-      return response;
-    }
-
     const auth = await getFirebaseAdminAuth();
-
     if (auth) {
-      const sessionCookie = await auth.createSessionCookie(idToken, {
-        expiresIn: COOKIE_MAX_AGE * 1000,
-      });
-      response.cookies.set(FIREBASE_SESSION_COOKIE, sessionCookie, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: COOKIE_MAX_AGE,
-        path: "/",
-      });
-      return response;
+      try {
+        const sessionCookie = await auth.createSessionCookie(idToken, {
+          expiresIn: COOKIE_MAX_AGE * 1000,
+        });
+        response.cookies.set(FIREBASE_SESSION_COOKIE, sessionCookie, {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          maxAge: COOKIE_MAX_AGE,
+          path: "/",
+        });
+        console.debug("[auth/session] session cookie set via admin.createSessionCookie");
+        return response;
+      } catch (e) {
+        console.error("[auth/session] createSessionCookie failed:", e);
+        // Fall back to setting the raw idToken cookie for non-admin environments
+      }
     }
 
     response.cookies.set(FIREBASE_SESSION_COOKIE, idToken, {
@@ -49,6 +44,7 @@ export async function POST(request: Request) {
       maxAge: COOKIE_MAX_AGE,
       path: "/",
     });
+    console.debug("[auth/session] session cookie set with raw idToken");
     return response;
   } catch (error) {
     const message = (error instanceof Error ? error.message : String(error));

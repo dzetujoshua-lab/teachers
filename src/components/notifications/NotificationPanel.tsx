@@ -5,7 +5,7 @@ import { MessageSquare, AlertTriangle, ClipboardList, Utensils, CalendarDays, Se
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import type { NotificationItem } from "@/lib/mock-data";
+import type { NotificationItem } from "@/lib/firebase/data";
 import { relativeTime } from "@/lib/utils";
 
 const typeIcons: Record<string, React.ReactNode> = {

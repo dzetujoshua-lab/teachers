@@ -3,7 +3,6 @@ import {
   FIREBASE_ADMIN_PRIVATE_KEY,
   FIREBASE_CONFIG,
   FIREBASE_SESSION_COOKIE,
-  USE_MOCK,
 } from "./config";
 import type { Role } from "@/lib/types";
 
@@ -21,8 +20,6 @@ export interface FirebaseProfile {
 }
 
 export async function getFirebaseAdminApp() {
-  if (USE_MOCK) return null;
-
   const appModule = await import("firebase-admin/app");
   const { getApps, initializeApp, cert } = appModule;
 

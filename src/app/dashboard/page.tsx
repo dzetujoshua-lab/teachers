@@ -12,7 +12,16 @@ import { cookies } from "next/headers";
 export const metadata = { title: "Choose your workspace" };
 export default async function DashboardPicker() {
   const profile = await getProfileBySession(await cookies());
-  if (profile?.role) redirect(`/dashboard/${profile.role}`);
+  if (!profile) {
+    redirect("/login?session_expired=1");
+  }
+  if (profile?.role) {
+    if (profile.role === "facilitator") {
+      redirect(`/dashboard/facilitator/${profile.uid}`);
+    } else {
+      redirect(`/dashboard/${profile.role}`);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">

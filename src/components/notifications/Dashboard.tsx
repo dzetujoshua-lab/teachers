@@ -6,14 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { ChatWindow } from "@/components/notifications/ChatWindow";
 import { NotificationPanel } from "@/components/notifications/NotificationPanel";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
-import { notifications } from "@/lib/mock-data";
-import type { NotificationItem } from "@/lib/mock-data";
+import type { NotificationItem } from "@/lib/firebase/data";
 import { MessageSquare, Bell, User } from "lucide-react";
 
 export function NotificationDashboard() {
   const [isPanelOpen, setIsPanelOpen] = React.useState(false);
   const [selectedNotification, setSelectedNotification] = React.useState<NotificationItem | null>(null);
-  const [localNotifications, setLocalNotifications] = React.useState(notifications);
+  const [localNotifications, setLocalNotifications] = React.useState<NotificationItem[]>([]);
 
   const unreadCount = localNotifications.filter((n) => !n.read).length;
 

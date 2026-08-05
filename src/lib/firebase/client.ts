@@ -3,10 +3,9 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { FIREBASE_CONFIG, USE_MOCK } from "./config";
+import { FIREBASE_CONFIG } from "./config";
 
 export function getFirebaseApp() {
-  if (USE_MOCK) return null;
   return getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
 }
 

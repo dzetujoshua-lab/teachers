@@ -19,9 +19,9 @@ export const metadata: Metadata = {
     "Real-time attendance, campus monitoring, and meal operations for modern institutions.",
   metadataBase: new URL("https://smartcampus-attend.app"),
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon-16x16.png",
-    apple: "/apple-touch-icon.png",
+    icon: "/images/dti-logo.png",
+    shortcut: "/images/dti-logo.png",
+    apple: "/images/dti-logo.png",
   },
   openGraph: {
     title: "SmartCampus Attend",
